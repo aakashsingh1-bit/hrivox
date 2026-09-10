@@ -3,10 +3,10 @@ import { useAuth } from '@/lib/auth';
 import { Eye, EyeOff } from 'lucide-react';
 
 export function AuthScreen() {
-  const { signIn, signUp } = useAuth();
+  const { signIn, signUp, setupError } = useAuth();
   const [mode, setMode] = useState<'login' | 'signup'>('login');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState('admin@hrivox.com');
+  const [password, setPassword] = useState('Password123!');
   const [displayName, setDisplayName] = useState('');
   const [phone, setPhone] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -27,16 +27,12 @@ export function AuthScreen() {
       }
     } else {
       const { error } = await signIn(email, password);
-      if (error) {
-        if (/email not confirmed/i.test(error)) {
-          setError('Email not confirmed. In Supabase: Authentication → Users → confirm admin/player, or run supabase/confirm_emails.sql in SQL Editor.');
-        } else {
-          setError(error);
-        }
-      }
+      if (error) setError(error);
     }
     setBusy(false);
   };
+
+  const banner = error || setupError;
 
   return (
     <div className="auth-screen">
@@ -86,7 +82,7 @@ export function AuthScreen() {
             </div>
           </label>
 
-          {error && <div className={`auth-error ${error.includes('created') ? 'success' : ''}`}>{error}</div>}
+          {banner && <div className={`auth-error ${banner.includes('created') ? 'success' : ''}`}>{banner}</div>}
 
           <button type="submit" className="auth-submit" disabled={busy}>
             {busy ? 'Please wait...' : mode === 'login' ? 'Login' : 'Create Account'}
