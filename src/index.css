@@ -351,10 +351,11 @@ button:focus-visible, input:focus-visible { outline: 3px solid rgba(39, 154, 224
 }
 
 .result-modal {
-  position: fixed; inset: 0; z-index: 40;
+  position: fixed; inset: 0; z-index: 99999;
   display: grid; place-items: center;
-  padding: 20px;
-  background: rgba(4, 10, 24, .62);
+  padding: max(20px, env(safe-area-inset-top)) 20px max(20px, env(safe-area-inset-bottom));
+  background: rgba(4, 10, 24, .72);
+  -webkit-backdrop-filter: blur(4px);
   backdrop-filter: blur(4px);
 }
 .result-modal-card {
@@ -583,6 +584,24 @@ button:focus-visible, input:focus-visible { outline: 3px solid rgba(39, 154, 224
   margin-top: 22px; width: 100%; padding: 13px; border: 0; border-radius: 12px;
   color: #fff; background: #e8444f; font-weight: 700; font-size: 14px;
 }
+.more-screen .logout-button {
+  position: sticky;
+  bottom: 8px;
+  z-index: 6;
+  margin-top: 18px;
+  margin-bottom: 8px;
+  box-shadow: 0 8px 24px rgba(232, 68, 79, .35);
+}
+.more-screen.page-screen {
+  padding-bottom: 24px;
+}
+.toast {
+  position: fixed; z-index: 100000; bottom: calc(84px + env(safe-area-inset-bottom, 0px)); left: 50%; transform: translateX(-50%);
+  display: flex; align-items: center; gap: 8px; padding: 12px 16px; border-radius: 24px;
+  color: #fff; background: rgba(22, 31, 45, .92); box-shadow: 0 10px 25px rgba(0,0,0,.18);
+  font-size: 12px; white-space: nowrap; max-width: 90vw;
+}
+.toast svg { color: #64dfa4; flex-shrink: 0; }
 
 /* ===== More ===== */
 .more-hero {
@@ -699,14 +718,6 @@ button:focus-visible, input:focus-visible { outline: 3px solid rgba(39, 154, 224
 .admin-user-header, .admin-bet-header { border-bottom: 2px solid #e2e8f0; color: #6e7a8d; font-weight: 700; }
 .admin-user-row, .admin-bet-row { border-bottom: 1px solid #eef1f5; color: #192d45; }
 .admin-tag { display: inline-block; margin-left: 5px; padding: 1px 5px; border-radius: 3px; color: #fff; background: #ee272f; font-size: 8px; font-weight: 700; }
-
-.toast {
-  position: fixed; z-index: 30; bottom: calc(72px + env(safe-area-inset-bottom, 0px)); left: 50%; transform: translateX(-50%);
-  display: flex; align-items: center; gap: 8px; padding: 12px 16px; border-radius: 24px;
-  color: #fff; background: rgba(22, 31, 45, .92); box-shadow: 0 10px 25px rgba(0,0,0,.18);
-  font-size: 12px; white-space: nowrap; max-width: 90vw;
-}
-.toast svg { color: #64dfa4; flex-shrink: 0; }
 
 /* ===== Splash ===== */
 .splash-screen {
