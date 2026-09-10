@@ -7,6 +7,7 @@ import {
   Clock3,
   Info,
   ListOrdered,
+  LogOut,
   MessageCircle,
   Settings,
   ShieldCheck,
@@ -22,7 +23,7 @@ export function MoreScreen({
   onNavigate: (tab: Tab) => void;
   onOpenPage: (page: MorePage) => void;
 }) {
-  const { profile } = useAuth();
+  const { profile, signOut } = useAuth();
 
   const items: { title: string; subtitle: string; Icon: typeof CircleHelp; action: () => void }[] = [
     {
@@ -116,6 +117,18 @@ export function MoreScreen({
           </p>
         </div>
       </div>
+
+      <button
+        type="button"
+        className="logout-button"
+        onClick={async () => {
+          playTap();
+          await signOut();
+        }}
+      >
+        <LogOut size={16} style={{ marginRight: 8, verticalAlign: 'middle' }} />
+        Logout
+      </button>
     </div>
   );
 }

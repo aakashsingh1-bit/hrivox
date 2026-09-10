@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react';
-import { ArrowLeft, Volume2, VolumeX, MessageCircle, ShieldCheck } from 'lucide-react';
+import { ArrowLeft, Volume2, VolumeX, MessageCircle, ShieldCheck, LogOut } from 'lucide-react';
 import { isMuted, setMuted } from '@/lib/prefs';
 import { playTap, unlockAudio } from '@/lib/sounds';
 import { openAddMoneyWhatsApp, SUPPORT_WHATSAPP } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth';
 
 export function SettingsScreen({ onBack }: { onBack: () => void }) {
-  const { profile } = useAuth();
+  const { profile, signOut } = useAuth();
   const [muted, setMutedState] = useState(isMuted());
 
   useEffect(() => {
@@ -67,7 +67,19 @@ export function SettingsScreen({ onBack }: { onBack: () => void }) {
         <ShieldCheck size={18} color="#238fd2" />
       </div>
 
-      <p className="settings-version">HRIVOX 900 · v1.0.0 · Mobile app shell</p>
+      <button
+        type="button"
+        className="logout-button"
+        onClick={async () => {
+          playTap();
+          await signOut();
+        }}
+      >
+        <LogOut size={16} style={{ marginRight: 8, verticalAlign: 'middle' }} />
+        Logout
+      </button>
+
+      <p className="settings-version">HRIVOX 900 · v1.0.0</p>
     </div>
   );
 }

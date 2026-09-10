@@ -5,8 +5,8 @@ import { Eye, EyeOff } from 'lucide-react';
 export function AuthScreen() {
   const { signIn, signUp, setupError } = useAuth();
   const [mode, setMode] = useState<'login' | 'signup'>('login');
-  const [email, setEmail] = useState('admin@hrivox.com');
-  const [password, setPassword] = useState('Password123!');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [phone, setPhone] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -24,6 +24,7 @@ export function AuthScreen() {
       else {
         setError('Account created! Please login now.');
         setMode('login');
+        setPassword('');
       }
     } else {
       const { error } = await signIn(email, password);
@@ -117,14 +118,6 @@ export function AuthScreen() {
         </form>
 
         <p className="auth-note">Win payout: 1 coin → 8 coins · Hourly results</p>
-        {/* <div className="demo-creds">
-          <p>
-            <b>Admin</b> — admin@hrivox.com / Password123!
-          </p>
-          <p>
-            <b>Player</b> — player@hrivox.com / Password123!
-          </p>
-        </div> */}
       </div>
     </div>
   );

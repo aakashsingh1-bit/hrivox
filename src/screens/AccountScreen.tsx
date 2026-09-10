@@ -75,6 +75,10 @@ export function AccountScreen({
         ऐड मनी / Add Money
       </button>
 
+      <button type="button" className="logout-button" style={{ marginTop: 12 }} onClick={async () => signOut()}>
+        Logout
+      </button>
+
       <div className="account-list">
         <button type="button" onClick={() => onNavigate('play')}>
           <span>
@@ -124,10 +128,6 @@ export function AccountScreen({
           ))
         )}
       </div>
-
-      <button type="button" className="logout-button" onClick={async () => signOut()}>
-        Logout
-      </button>
     </div>
   );
 }
