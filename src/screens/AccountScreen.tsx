@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/lib/auth';
 import { supabase, openAddMoneyWhatsApp, type Bet, type Game } from '@/lib/supabase';
-import { ChevronRight, Coins, ListOrdered, CircleHelp, Settings, MessageCircle } from 'lucide-react';
+import { ChevronRight, Coins, ListOrdered, CircleHelp, Settings, MessageCircle, LogOut } from 'lucide-react';
 import type { Tab } from '@/components/AppShell';
 import { playTap } from '@/lib/sounds';
 
@@ -76,6 +76,7 @@ export function AccountScreen({
       </button>
 
       <button type="button" className="logout-button" style={{ marginTop: 12 }} onClick={async () => signOut()}>
+        <LogOut size={16} />
         Logout
       </button>
 

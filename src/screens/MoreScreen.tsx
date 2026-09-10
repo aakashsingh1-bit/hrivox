@@ -126,7 +126,7 @@ export function MoreScreen({
           await signOut();
         }}
       >
-        <LogOut size={16} style={{ marginRight: 8, verticalAlign: 'middle' }} />
+        <LogOut size={16} />
         Logout
       </button>
     </div>
