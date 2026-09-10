@@ -5,14 +5,15 @@ import { ArrowLeft, Volume2, VolumeX, Coins } from 'lucide-react';
 import { playBetOk, playSpinStart, playTick, playWin, unlockAudio } from '@/lib/sounds';
 import { isMuted, setMuted as persistMuted } from '@/lib/prefs';
 
-/** Clockwise from top pointer on client wheel art: 1,2,3,4,5,6,7,8,9,0 */
+/** Clockwise from top on wheel art: 1,2,3,4,5,6,7,8,9,0 */
 const WHEEL_ORDER = [1, 2, 3, 4, 5, 6, 7, 8, 9, 0] as const;
 const SEG = 36;
 
-function angleForNumber(n: number) {
+/** Arrow ring starts pointing UP at segment 1; rotate clockwise to land on digit. */
+function arrowAngleForNumber(n: number) {
   const idx = WHEEL_ORDER.indexOf(n as (typeof WHEEL_ORDER)[number]);
   if (idx < 0) return 0;
-  return -(idx * SEG);
+  return idx * SEG;
 }
 
 type Props = {
@@ -32,7 +33,7 @@ export function PlayScreen({ gameId, mode, onBack }: Props) {
   const [submitting, setSubmitting] = useState(false);
   const [now, setNow] = useState(Date.now());
   const [muted, setMutedState] = useState(isMuted());
-  const [rotation, setRotation] = useState(0);
+  const [arrowRotation, setArrowRotation] = useState(0);
   const [spinning, setSpinning] = useState(false);
   const lastResultRef = useRef<string>('');
   const tickTimer = useRef<number | null>(null);
@@ -79,7 +80,7 @@ export function PlayScreen({ gameId, mode, onBack }: Props) {
     if (checkSpin && g.result && g.result !== lastResultRef.current && lastResultRef.current !== '') {
       spinToResult(Number(g.result));
     } else if (g.result && !checkSpin) {
-      setRotation(angleForNumber(Number(g.result)));
+      setArrowRotation(arrowAngleForNumber(Number(g.result)));
     }
     if (g.result) lastResultRef.current = g.result;
   };
@@ -110,13 +111,13 @@ export function PlayScreen({ gameId, mode, onBack }: Props) {
     if (tickTimer.current) window.clearInterval(tickTimer.current);
     tickTimer.current = window.setInterval(() => sfx(playTick), 90);
 
-    const target = angleForNumber(digit);
-    setRotation((prev) => {
+    const target = arrowAngleForNumber(digit);
+    setArrowRotation((prev) => {
       const normalized = ((prev % 360) + 360) % 360;
       const want = ((target % 360) + 360) % 360;
       let delta = want - normalized;
-      if (delta > 0) delta -= 360;
-      return prev + delta - 360 * 6;
+      if (delta <= 0) delta += 360;
+      return prev + delta + 360 * 5;
     });
 
     window.setTimeout(() => {
@@ -233,13 +234,13 @@ export function PlayScreen({ gameId, mode, onBack }: Props) {
       </div>
 
       <div className="wheel-stage">
+        <img className="wheel-base" src="/wheel.png?v=4" alt="Wheel" draggable={false} />
         <div
-          className={`wheel-photo ${spinning ? 'is-spinning' : ''}`}
-          style={{ transform: `rotate(${rotation}deg)` }}
+          className={`wheel-arrow-wrap ${spinning ? 'is-spinning' : ''}`}
+          style={{ transform: `rotate(${arrowRotation}deg)` }}
         >
-          <img src="/wheel.png?v=3" alt="Wheel" draggable={false} />
+          <img className="wheel-arrow" src="/wheel-arrow.png?v=4" alt="" draggable={false} />
         </div>
-        <img className="wheel-pointer" src="/wheel-pointer.png?v=3" alt="" draggable={false} />
       </div>
 
       <div className="stat-grid">
