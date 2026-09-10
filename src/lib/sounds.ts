@@ -48,6 +48,12 @@ export function playSpinStart() {
   window.setTimeout(() => playTone(220, 0.2, 'sawtooth', 0.05), 100);
 }
 
+export function playWin(digit: number) {
+  playTone(440 + digit * 20, 0.15, 'sine', 0.08);
+  window.setTimeout(() => playTone(660, 0.2, 'sine', 0.09), 120);
+  window.setTimeout(() => playTone(880, 0.25, 'sine', 0.07), 260);
+}
+
 export function playLose() {
   playTone(320, 0.18, 'triangle', 0.06);
   window.setTimeout(() => playTone(220, 0.28, 'sine', 0.07), 160);
