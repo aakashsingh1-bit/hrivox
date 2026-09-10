@@ -234,12 +234,12 @@ export function PlayScreen({ gameId, mode, onBack }: Props) {
       </div>
 
       <div className="wheel-stage">
-        <img className="wheel-base" src="/wheel.png?v=4" alt="Wheel" draggable={false} />
+        <img className="wheel-base" src="/wheel.png?v=5" alt="Wheel" draggable={false} />
         <div
           className={`wheel-arrow-wrap ${spinning ? 'is-spinning' : ''}`}
           style={{ transform: `rotate(${arrowRotation}deg)` }}
         >
-          <img className="wheel-arrow" src="/wheel-arrow.png?v=4" alt="" draggable={false} />
+          <img className="wheel-arrow" src="/wheel-arrow.png?v=5" alt="" draggable={false} />
         </div>
       </div>
 
