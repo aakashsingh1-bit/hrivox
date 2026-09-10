@@ -28,6 +28,7 @@ export function AdminScreen({ onBack }: { onBack?: () => void }) {
   const [games, setGames] = useState<Game[]>([]);
   const [users, setUsers] = useState<Profile[]>([]);
   const [allBets, setAllBets] = useState<Bet[]>([]);
+  const [pendingBets, setPendingBets] = useState<Bet[]>([]);
   const [results, setResults] = useState<ResultHistory[]>([]);
   const [editResult, setEditResult] = useState<Record<string, string>>({});
   const [creditAmt, setCreditAmt] = useState<Record<string, string>>({});
@@ -36,28 +37,90 @@ export function AdminScreen({ onBack }: { onBack?: () => void }) {
   const [now, setNow] = useState(Date.now());
   const [selectedGameId, setSelectedGameId] = useState<string | null>(null);
 
+  const loadPendingForGame = async (gameId: string | null) => {
+    if (!gameId) {
+      setPendingBets([]);
+      return;
+    }
+    const { data } = await supabase
+      .from('bets')
+      .select('*')
+      .eq('game_id', gameId)
+      .eq('status', 'pending')
+      .order('created_at', { ascending: false })
+      .limit(2000);
+    if (data) setPendingBets(data as Bet[]);
+  };
+
+  const refreshLive = async () => {
+    const gameId = selectedGameId;
+    const [g, b] = await Promise.all([
+      supabase.from('games').select('*').order('created_at'),
+      supabase.from('bets').select('*').order('created_at', { ascending: false }).limit(150),
+    ]);
+    let nextId = gameId;
+    if (g.data) {
+      const list = g.data as Game[];
+      setGames(list);
+      if (!nextId && list[0]) {
+        nextId = list[0].id;
+        setSelectedGameId(list[0].id);
+      }
+    }
+    if (b.data) setAllBets(b.data as Bet[]);
+    await loadPendingForGame(nextId);
+  };
+
   useEffect(() => {
-    loadAll();
+    void loadAll();
     const t = window.setInterval(() => setNow(Date.now()), 1000);
     return () => window.clearInterval(t);
   }, []);
+
+  // Auto-refresh digit totals while watching Games / Bets / Overview
+  useEffect(() => {
+    if (section !== 'games' && section !== 'bets' && section !== 'overview') return;
+    void refreshLive();
+    const poll = window.setInterval(() => {
+      void refreshLive();
+    }, 2500);
+    return () => window.clearInterval(poll);
+  }, [section, selectedGameId]);
+
+  // Instant updates when any bet is inserted/updated
+  useEffect(() => {
+    const channel = supabase
+      .channel(`admin-live-bets-${selectedGameId || 'all'}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'bets' }, () => {
+        void refreshLive();
+      })
+      .subscribe();
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [selectedGameId]);
 
   const loadAll = async () => {
     await supabase.rpc('try_settle_due');
     const [g, u, b, r] = await Promise.all([
       supabase.from('games').select('*').order('created_at'),
       supabase.from('profiles').select('*').order('created_at'),
-      supabase.from('bets').select('*').order('created_at', { ascending: false }).limit(120),
+      supabase.from('bets').select('*').order('created_at', { ascending: false }).limit(150),
       supabase.from('results_history').select('*').order('published_at', { ascending: false }).limit(50),
     ]);
+    let nextSelected = selectedGameId;
     if (g.data) {
       const list = g.data as Game[];
       setGames(list);
-      if (!selectedGameId && list[0]) setSelectedGameId(list[0].id);
+      if (!nextSelected && list[0]) {
+        nextSelected = list[0].id;
+        setSelectedGameId(list[0].id);
+      }
     }
     if (u.data) setUsers(u.data as Profile[]);
     if (b.data) setAllBets(b.data as Bet[]);
     if (r.data) setResults(r.data as ResultHistory[]);
+    await loadPendingForGame(nextSelected);
   };
 
   const notify = (msg: string) => {
@@ -78,16 +141,15 @@ export function AdminScreen({ onBack }: { onBack?: () => void }) {
 
   const pendingByDigit = useMemo(() => {
     const totals = Array.from({ length: 10 }, () => 0);
-    if (!selectedGameId) return totals;
-    for (const bet of allBets) {
-      if (bet.game_id !== selectedGameId) continue;
-      if (bet.status !== 'pending') continue;
+    for (const bet of pendingBets) {
       if (bet.selected_number >= 0 && bet.selected_number <= 9) {
         totals[bet.selected_number] += bet.amount;
       }
     }
     return totals;
-  }, [allBets, selectedGameId]);
+  }, [pendingBets]);
+
+  const pendingStakeTotal = useMemo(() => pendingByDigit.reduce((a, b) => a + b, 0), [pendingByDigit]);
 
   const lowestDigit = useMemo(() => {
     let best = 0;
@@ -291,7 +353,10 @@ export function AdminScreen({ onBack }: { onBack?: () => void }) {
                       </span>
                     </div>
 
-                    <p className="digit-totals-label">Open-round totals (lowest → {lowestDigit})</p>
+                    <p className="digit-totals-label">
+                      Live open-round totals · {pendingBets.length} bets · {pendingStakeTotal} coins (lowest → {lowestDigit})
+                      <span className="live-dot" aria-hidden /> Live
+                    </p>
                     <div className="digit-totals">
                       {pendingByDigit.map((amt, n) => (
                         <div key={n} className={`digit-total ${n === lowestDigit ? 'lowest' : ''}`}>
