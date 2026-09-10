@@ -2,7 +2,8 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useAuth } from '@/lib/auth';
 import { supabase, formatCountdown, type Game, type ResultHistory } from '@/lib/supabase';
 import { ArrowLeft, Volume2, VolumeX, Coins } from 'lucide-react';
-import { playBetOk, playSpinStart, playTick, playWin } from '@/lib/sounds';
+import { playBetOk, playSpinStart, playTick, playWin, unlockAudio } from '@/lib/sounds';
+import { isMuted, setMuted as persistMuted } from '@/lib/prefs';
 
 /** Clockwise from top pointer on client wheel art: 1,2,3,4,5,6,7,8,9,0 */
 const WHEEL_ORDER = [1, 2, 3, 4, 5, 6, 7, 8, 9, 0] as const;
@@ -30,11 +31,17 @@ export function PlayScreen({ gameId, mode, onBack }: Props) {
   const [toast, setToast] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [now, setNow] = useState(Date.now());
-  const [muted, setMuted] = useState(false);
+  const [muted, setMutedState] = useState(isMuted());
   const [rotation, setRotation] = useState(0);
   const [spinning, setSpinning] = useState(false);
   const lastResultRef = useRef<string>('');
   const tickTimer = useRef<number | null>(null);
+
+  useEffect(() => {
+    const onMute = (e: Event) => setMutedState(Boolean((e as CustomEvent).detail));
+    window.addEventListener('hrivox-mute', onMute);
+    return () => window.removeEventListener('hrivox-mute', onMute);
+  }, []);
 
   useEffect(() => {
     loadGame();
@@ -96,7 +103,7 @@ export function PlayScreen({ gameId, mode, onBack }: Props) {
     window.setTimeout(() => setToast(''), 2800);
   };
 
-  const spinToResult = (digit: number) => {
+  const spinToDigit = (digit: number, opts?: { announceResult?: boolean }) => {
     if (Number.isNaN(digit) || digit < 0 || digit > 9) return;
     setSpinning(true);
     sfx(playSpinStart);
@@ -115,10 +122,14 @@ export function PlayScreen({ gameId, mode, onBack }: Props) {
     window.setTimeout(() => {
       if (tickTimer.current) window.clearInterval(tickTimer.current);
       setSpinning(false);
-      sfx(() => playWin(digit));
-      notify(`Result: ${digit}`);
+      if (opts?.announceResult) {
+        sfx(() => playWin(digit));
+        notify(`Result: ${digit}`);
+      }
     }, 4200);
   };
+
+  const spinToResult = (digit: number) => spinToDigit(digit, { announceResult: true });
 
   const nextMs = game?.next_result_at ? new Date(game.next_result_at).getTime() - now : 0;
   const countdown = formatCountdown(nextMs);
@@ -159,6 +170,12 @@ export function PlayScreen({ gameId, mode, onBack }: Props) {
             .filter(([, v]) => Number(v) > 0)
             .map(([num, amt]) => ({ number: Number(num), amount: Number(amt) }));
 
+    // Number the pin should land on after Bet Ok (highest stake if several)
+    const focusNumber =
+      mode === 'harf'
+        ? (harfDigit as number)
+        : bets.reduce((best, b) => (b.amount > best.amount ? b : best), bets[0]).number;
+
     const { error } = await supabase.rpc('place_bets', {
       p_game_id: game.id,
       p_bets: bets,
@@ -171,15 +188,12 @@ export function PlayScreen({ gameId, mode, onBack }: Props) {
     }
 
     sfx(playBetOk);
-    setSpinning(true);
-    setRotation((r) => r - 720);
-    window.setTimeout(() => setSpinning(false), 1600);
-
+    spinToDigit(focusNumber);
     await refreshProfile();
     setAmounts({});
     setHarfDigit(null);
     setHarfAmount('');
-    notify(mode === 'harf' ? 'Harf bet placed ✓' : 'Bet Ok ✓');
+    notify(mode === 'harf' ? `Harf ${focusNumber} placed ✓` : `Bet on ${focusNumber} ✓`);
     setSubmitting(false);
   };
 
@@ -203,7 +217,17 @@ export function PlayScreen({ gameId, mode, onBack }: Props) {
           <small>{mode === 'harf' ? 'PLAY HARF' : 'PLAY GAME'}</small>
           <strong>{game.name}</strong>
         </div>
-        <button type="button" className="sound-fab inline" onClick={() => setMuted((m) => !m)} aria-label="Sound">
+        <button
+          type="button"
+          className="sound-fab inline"
+          onClick={() => {
+            unlockAudio();
+            const next = !muted;
+            persistMuted(next);
+            setMutedState(next);
+          }}
+          aria-label="Sound"
+        >
           {muted ? <VolumeX size={18} /> : <Volume2 size={18} />}
         </button>
       </div>
@@ -213,8 +237,9 @@ export function PlayScreen({ gameId, mode, onBack }: Props) {
           className={`wheel-photo ${spinning ? 'is-spinning' : ''}`}
           style={{ transform: `rotate(${rotation}deg)` }}
         >
-          <img src="/wheel.png?v=2" alt="Wheel" draggable={false} />
+          <img src="/wheel.png?v=3" alt="Wheel" draggable={false} />
         </div>
+        <img className="wheel-pointer" src="/wheel-pointer.png?v=3" alt="" draggable={false} />
       </div>
 
       <div className="stat-grid">

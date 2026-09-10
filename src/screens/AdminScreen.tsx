@@ -1,10 +1,30 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '@/lib/auth';
 import { supabase, formatCountdown, type Game, type Profile, type Bet, type ResultHistory } from '@/lib/supabase';
-import { ShieldCheck, Users, Gamepad2, Clock3, ListOrdered, RefreshCw } from 'lucide-react';
+import {
+  ShieldCheck,
+  Users,
+  Gamepad2,
+  Clock3,
+  ListOrdered,
+  RefreshCw,
+  ArrowLeft,
+  LayoutDashboard,
+} from 'lucide-react';
+
+type AdminSection = 'overview' | 'games' | 'users' | 'bets' | 'results';
+
+const SECTIONS: { id: AdminSection; label: string }[] = [
+  { id: 'overview', label: 'Overview' },
+  { id: 'games', label: 'Games' },
+  { id: 'users', label: 'Users' },
+  { id: 'bets', label: 'Bets' },
+  { id: 'results', label: 'Results' },
+];
 
 export function AdminScreen({ onBack }: { onBack?: () => void }) {
   const { profile, signOut } = useAuth();
+  const [section, setSection] = useState<AdminSection>('overview');
   const [games, setGames] = useState<Game[]>([]);
   const [users, setUsers] = useState<Profile[]>([]);
   const [allBets, setAllBets] = useState<Bet[]>([]);
@@ -14,6 +34,7 @@ export function AdminScreen({ onBack }: { onBack?: () => void }) {
   const [search, setSearch] = useState('');
   const [toast, setToast] = useState('');
   const [now, setNow] = useState(Date.now());
+  const [selectedGameId, setSelectedGameId] = useState<string | null>(null);
 
   useEffect(() => {
     loadAll();
@@ -26,10 +47,14 @@ export function AdminScreen({ onBack }: { onBack?: () => void }) {
     const [g, u, b, r] = await Promise.all([
       supabase.from('games').select('*').order('created_at'),
       supabase.from('profiles').select('*').order('created_at'),
-      supabase.from('bets').select('*').order('created_at', { ascending: false }).limit(80),
-      supabase.from('results_history').select('*').order('published_at', { ascending: false }).limit(30),
+      supabase.from('bets').select('*').order('created_at', { ascending: false }).limit(120),
+      supabase.from('results_history').select('*').order('published_at', { ascending: false }).limit(50),
     ]);
-    if (g.data) setGames(g.data as Game[]);
+    if (g.data) {
+      const list = g.data as Game[];
+      setGames(list);
+      if (!selectedGameId && list[0]) setSelectedGameId(list[0].id);
+    }
     if (u.data) setUsers(u.data as Profile[]);
     if (b.data) setAllBets(b.data as Bet[]);
     if (r.data) setResults(r.data as ResultHistory[]);
@@ -50,6 +75,27 @@ export function AdminScreen({ onBack }: { onBack?: () => void }) {
         u.id.toLowerCase().includes(q),
     );
   }, [users, search]);
+
+  const pendingByDigit = useMemo(() => {
+    const totals = Array.from({ length: 10 }, () => 0);
+    if (!selectedGameId) return totals;
+    for (const bet of allBets) {
+      if (bet.game_id !== selectedGameId) continue;
+      if (bet.status !== 'pending') continue;
+      if (bet.selected_number >= 0 && bet.selected_number <= 9) {
+        totals[bet.selected_number] += bet.amount;
+      }
+    }
+    return totals;
+  }, [allBets, selectedGameId]);
+
+  const lowestDigit = useMemo(() => {
+    let best = 0;
+    for (let i = 1; i < 10; i++) {
+      if (pendingByDigit[i] < pendingByDigit[best]) best = i;
+    }
+    return best;
+  }, [pendingByDigit]);
 
   const toggleGame = async (game: Game) => {
     const { error } = await supabase.from('games').update({ is_active: !game.is_active }).eq('id', game.id);
@@ -112,208 +158,275 @@ export function AdminScreen({ onBack }: { onBack?: () => void }) {
   };
 
   return (
-    <div className="admin-screen">
-      <header className="admin-header">
-        <div>
-          <span className="small-label">ADMIN PANEL</span>
-          <h1>HRIVOX 900</h1>
-        </div>
-        <div className="admin-user">
+    <div className="admin-app">
+      <header className="admin-app-header">
+        <button type="button" className="back-button light" onClick={onBack} aria-label="Back">
+          <ArrowLeft size={18} />
+        </button>
+        <div className="admin-app-title">
           <span className="admin-badge">ADMIN</span>
-          <span className="header-name">{profile?.display_name}</span>
-          {onBack && (
-            <button type="button" className="admin-back" onClick={onBack}>
-              App
-            </button>
-          )}
-          <button type="button" className="logout-button-small" onClick={signOut}>
-            Logout
-          </button>
+          <strong>Control panel</strong>
+          <small>{profile?.display_name}</small>
         </div>
+        <button type="button" className="refresh-small light" onClick={loadAll} aria-label="Refresh">
+          <RefreshCw size={16} />
+        </button>
       </header>
 
-      <div className="admin-stats">
-        <div className="stat-card">
-          <Users size={18} />
-          <div>
-            <strong>{users.length}</strong>
-            <span>Users</span>
-          </div>
-        </div>
-        <div className="stat-card">
-          <Gamepad2 size={18} />
-          <div>
-            <strong>
-              {games.filter((g) => g.is_active).length}/{games.length}
-            </strong>
-            <span>Active</span>
-          </div>
-        </div>
-        <div className="stat-card">
-          <ListOrdered size={18} />
-          <div>
-            <strong>{allBets.length}</strong>
-            <span>Recent bets</span>
-          </div>
-        </div>
-        <div className="stat-card">
-          <Clock3 size={18} />
-          <div>
-            <strong>{results.length}</strong>
-            <span>Results</span>
-          </div>
-        </div>
-      </div>
-
-      <section className="admin-section">
-        <div className="section-top">
-          <h2>Game management</h2>
-          <button type="button" className="refresh-small" onClick={loadAll}>
-            <RefreshCw size={14} /> Refresh
+      <nav className="admin-section-tabs">
+        {SECTIONS.map((s) => (
+          <button
+            key={s.id}
+            type="button"
+            className={section === s.id ? 'active' : ''}
+            onClick={() => setSection(s.id)}
+          >
+            {s.label}
           </button>
-        </div>
-        <div className="admin-game-list">
-          {games.map((game) => {
-            const ms = game.next_result_at ? new Date(game.next_result_at).getTime() - now : 0;
-            return (
-              <div key={game.id} className="admin-game-row">
-                <div className="admin-game-info">
+        ))}
+      </nav>
+
+      <div className="admin-app-body">
+        {section === 'overview' && (
+          <section className="admin-pane">
+            <div className="admin-stats compact">
+              <div className="stat-card">
+                <Users size={18} />
+                <div>
+                  <strong>{users.length}</strong>
+                  <span>Users</span>
+                </div>
+              </div>
+              <div className="stat-card">
+                <Gamepad2 size={18} />
+                <div>
                   <strong>
-                    {game.name} ({game.short_code})
+                    {games.filter((g) => g.is_active).length}/{games.length}
                   </strong>
-                  <small>
-                    Result: {game.result || '--'} · Next: {formatCountdown(ms)}
-                  </small>
-                  <span className={`game-status ${game.is_active ? 'on' : 'off'}`}>
-                    {game.is_active ? 'ON' : 'OFF'}
-                  </span>
-                </div>
-                <div className="admin-game-actions">
-                  <input
-                    className="result-input"
-                    placeholder="0-9"
-                    value={editResult[game.id] ?? ''}
-                    onChange={(e) =>
-                      setEditResult((cur) => ({
-                        ...cur,
-                        [game.id]: e.target.value.replace(/[^0-9]/g, '').slice(0, 1),
-                      }))
-                    }
-                    inputMode="numeric"
-                  />
-                  <button type="button" className="publish-button" onClick={() => publishOverride(game)}>
-                    Override
-                  </button>
-                  <button type="button" className="settle-button" onClick={() => forceSettle(game)}>
-                    Auto settle
-                  </button>
-                  <button
-                    type="button"
-                    className={`toggle-button ${game.is_active ? 'on' : 'off'}`}
-                    onClick={() => toggleGame(game)}
-                  >
-                    {game.is_active ? 'Turn OFF' : 'Turn ON'}
-                  </button>
+                  <span>Active</span>
                 </div>
               </div>
-            );
-          })}
-          {games.length === 0 && <p className="empty-state">No games — run the Supabase migration to seed 5 games.</p>}
-        </div>
-      </section>
-
-      <section className="admin-section">
-        <h2>User management</h2>
-        <input
-          className="admin-search"
-          placeholder="Search name, phone, or id..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
-        <div className="admin-user-list">
-          <div className="admin-user-header">
-            <span>Name</span>
-            <span>Phone</span>
-            <span>Coins</span>
-            <span>Credit</span>
-          </div>
-          {filteredUsers.map((u) => (
-            <div key={u.id} className="admin-user-row">
-              <span>
-                {u.display_name}
-                {u.is_admin && <b className="admin-tag">ADMIN</b>}
-              </span>
-              <span>{u.phone || 'N/A'}</span>
-              <span>{u.coins}</span>
-              <span>
-                <div className="credit-row">
-                  <input
-                    placeholder="+/-"
-                    value={creditAmt[u.id] ?? ''}
-                    onChange={(e) =>
-                      setCreditAmt((c) => ({
-                        ...c,
-                        [u.id]: e.target.value.replace(/[^0-9\-]/g, '').slice(0, 7),
-                      }))
-                    }
-                    inputMode="numeric"
-                  />
-                  <button type="button" onClick={() => creditUser(u.id)}>
-                    Apply
-                  </button>
+              <div className="stat-card">
+                <ListOrdered size={18} />
+                <div>
+                  <strong>{allBets.length}</strong>
+                  <span>Bets</span>
                 </div>
-              </span>
+              </div>
+              <div className="stat-card">
+                <Clock3 size={18} />
+                <div>
+                  <strong>{results.length}</strong>
+                  <span>Results</span>
+                </div>
+              </div>
             </div>
-          ))}
-          {filteredUsers.length === 0 && <p className="empty-state">No users found.</p>}
-        </div>
-      </section>
 
-      <section className="admin-section">
-        <h2>Recent participations</h2>
-        <div className="admin-bet-list">
-          <div className="admin-bet-header">
-            <span>User</span>
-            <span>Game</span>
-            <span>#</span>
-            <span>Amt</span>
-            <span>Status</span>
-          </div>
-          {allBets.map((bet) => {
-            const game = games.find((g) => g.id === bet.game_id);
-            const user = users.find((u) => u.id === bet.user_id);
-            return (
-              <div key={bet.id} className="admin-bet-row">
-                <span>{user?.display_name ?? '—'}</span>
-                <span>{game?.short_code ?? '—'}</span>
-                <span>{bet.selected_number}</span>
-                <span>{bet.amount}</span>
-                <span className={bet.status === 'won' ? 'text-green' : bet.status === 'lost' ? 'text-red' : ''}>
-                  {bet.status}
-                </span>
-              </div>
-            );
-          })}
-          {allBets.length === 0 && <p className="empty-state">No bets yet.</p>}
-        </div>
-      </section>
+            <h2 className="admin-pane-title">
+              <LayoutDashboard size={16} /> Live markets
+            </h2>
+            <div className="admin-game-list">
+              {games.map((game) => {
+                const ms = game.next_result_at ? new Date(game.next_result_at).getTime() - now : 0;
+                return (
+                  <button
+                    key={game.id}
+                    type="button"
+                    className="admin-game-summary"
+                    onClick={() => {
+                      setSelectedGameId(game.id);
+                      setSection('games');
+                    }}
+                  >
+                    <div>
+                      <strong>{game.name}</strong>
+                      <small>
+                        Last {game.result || '—'} · Next {formatCountdown(ms)}
+                      </small>
+                    </div>
+                    <span className={`game-status ${game.is_active ? 'on' : 'off'}`}>
+                      {game.is_active ? 'ON' : 'OFF'}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+            <button type="button" className="logout-button" onClick={() => signOut()}>
+              Logout admin
+            </button>
+          </section>
+        )}
 
-      <section className="admin-section">
-        <h2>Result history</h2>
-        <div className="admin-bet-list">
-          {results.map((r) => {
-            const game = games.find((g) => g.id === r.game_id);
-            return (
-              <div key={r.id} className="admin-bet-row">
-                <span>{game?.name ?? '—'}</span>
-                <span>{r.result}</span>
-                <span style={{ gridColumn: 'span 3' }}>{new Date(r.published_at).toLocaleString()}</span>
-              </div>
-            );
-          })}
-          {results.length === 0 && <p className="empty-state">No results yet.</p>}
-        </div>
-      </section>
+        {section === 'games' && (
+          <section className="admin-pane">
+            <h2 className="admin-pane-title">Game management</h2>
+            <div className="filter-chips tight">
+              {games.map((g) => (
+                <button
+                  key={g.id}
+                  type="button"
+                  className={selectedGameId === g.id ? 'on' : ''}
+                  onClick={() => setSelectedGameId(g.id)}
+                >
+                  {g.short_code}
+                </button>
+              ))}
+            </div>
+
+            {games
+              .filter((g) => !selectedGameId || g.id === selectedGameId)
+              .map((game) => {
+                const ms = game.next_result_at ? new Date(game.next_result_at).getTime() - now : 0;
+                return (
+                  <div key={game.id} className="admin-game-card">
+                    <div className="admin-game-info">
+                      <strong>
+                        {game.name} ({game.short_code})
+                      </strong>
+                      <small>
+                        Result: {game.result || '--'} · Next: {formatCountdown(ms)}
+                      </small>
+                      <span className={`game-status ${game.is_active ? 'on' : 'off'}`}>
+                        {game.is_active ? 'ON' : 'OFF'}
+                      </span>
+                    </div>
+
+                    <p className="digit-totals-label">Open-round totals (lowest → {lowestDigit})</p>
+                    <div className="digit-totals">
+                      {pendingByDigit.map((amt, n) => (
+                        <div key={n} className={`digit-total ${n === lowestDigit ? 'lowest' : ''}`}>
+                          <em>{n}</em>
+                          <b>{amt}</b>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="admin-game-actions stacked">
+                      <input
+                        className="result-input"
+                        placeholder="Override 0-9"
+                        value={editResult[game.id] ?? ''}
+                        onChange={(e) =>
+                          setEditResult((cur) => ({
+                            ...cur,
+                            [game.id]: e.target.value.replace(/[^0-9]/g, '').slice(0, 1),
+                          }))
+                        }
+                        inputMode="numeric"
+                      />
+                      <button type="button" className="publish-button" onClick={() => publishOverride(game)}>
+                        Override & settle
+                      </button>
+                      <button type="button" className="settle-button" onClick={() => forceSettle(game)}>
+                        Auto settle now
+                      </button>
+                      <button
+                        type="button"
+                        className={`toggle-button ${game.is_active ? 'on' : 'off'}`}
+                        onClick={() => toggleGame(game)}
+                      >
+                        {game.is_active ? 'Turn OFF' : 'Turn ON'}
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            {games.length === 0 && <p className="empty-state">No games seeded yet.</p>}
+          </section>
+        )}
+
+        {section === 'users' && (
+          <section className="admin-pane">
+            <h2 className="admin-pane-title">User management</h2>
+            <input
+              className="admin-search"
+              placeholder="Search name, phone, or id..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+            <div className="admin-user-cards">
+              {filteredUsers.map((u) => (
+                <div key={u.id} className="admin-user-card">
+                  <div>
+                    <strong>
+                      {u.display_name}
+                      {u.is_admin && <b className="admin-tag">ADMIN</b>}
+                    </strong>
+                    <small>
+                      {u.phone || 'N/A'} · {u.coins} coins
+                    </small>
+                  </div>
+                  <div className="credit-row">
+                    <input
+                      placeholder="+/-"
+                      value={creditAmt[u.id] ?? ''}
+                      onChange={(e) =>
+                        setCreditAmt((c) => ({
+                          ...c,
+                          [u.id]: e.target.value.replace(/[^0-9\-]/g, '').slice(0, 7),
+                        }))
+                      }
+                      inputMode="numeric"
+                    />
+                    <button type="button" onClick={() => creditUser(u.id)}>
+                      Apply
+                    </button>
+                  </div>
+                </div>
+              ))}
+              {filteredUsers.length === 0 && <p className="empty-state">No users found.</p>}
+            </div>
+          </section>
+        )}
+
+        {section === 'bets' && (
+          <section className="admin-pane">
+            <h2 className="admin-pane-title">Recent participations</h2>
+            <div className="admin-bet-cards">
+              {allBets.map((bet) => {
+                const game = games.find((g) => g.id === bet.game_id);
+                const user = users.find((u) => u.id === bet.user_id);
+                return (
+                  <div key={bet.id} className="admin-bet-card">
+                    <span className="result-digit">{bet.selected_number}</span>
+                    <div>
+                      <strong>{user?.display_name ?? '—'}</strong>
+                      <small>
+                        {game?.short_code ?? '—'} · {bet.amount} coins · {new Date(bet.created_at).toLocaleString()}
+                      </small>
+                    </div>
+                    <b className={bet.status === 'won' ? 'text-green' : bet.status === 'lost' ? 'text-red' : ''}>
+                      {bet.status}
+                    </b>
+                  </div>
+                );
+              })}
+              {allBets.length === 0 && <p className="empty-state">No bets yet.</p>}
+            </div>
+          </section>
+        )}
+
+        {section === 'results' && (
+          <section className="admin-pane">
+            <h2 className="admin-pane-title">Result history</h2>
+            <div className="admin-bet-cards">
+              {results.map((r) => {
+                const game = games.find((g) => g.id === r.game_id);
+                return (
+                  <div key={r.id} className="admin-bet-card">
+                    <span className="result-digit">{r.result}</span>
+                    <div>
+                      <strong>{game?.name ?? '—'}</strong>
+                      <small>{new Date(r.published_at).toLocaleString()}</small>
+                    </div>
+                  </div>
+                );
+              })}
+              {results.length === 0 && <p className="empty-state">No results yet.</p>}
+            </div>
+          </section>
+        )}
+      </div>
 
       {toast && (
         <div className="toast">

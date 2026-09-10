@@ -1,9 +1,27 @@
 import { useAuth } from '@/lib/auth';
 import { openAddMoneyWhatsApp } from '@/lib/supabase';
-import { ChevronRight, CircleHelp, Clock3, Info, ListOrdered, MessageCircle, ShieldCheck } from 'lucide-react';
+import { playTap } from '@/lib/sounds';
+import {
+  ChevronRight,
+  CircleHelp,
+  Clock3,
+  Info,
+  ListOrdered,
+  MessageCircle,
+  Settings,
+  ShieldCheck,
+} from 'lucide-react';
 import type { Tab } from '@/components/AppShell';
 
-export function MoreScreen({ onNavigate }: { onNavigate: (tab: Tab) => void }) {
+export type MorePage = 'menu' | 'how' | 'timings' | 'results' | 'settings';
+
+export function MoreScreen({
+  onNavigate,
+  onOpenPage,
+}: {
+  onNavigate: (tab: Tab) => void;
+  onOpenPage: (page: MorePage) => void;
+}) {
   const { profile } = useAuth();
 
   const items: { title: string; subtitle: string; Icon: typeof CircleHelp; action: () => void }[] = [
@@ -11,25 +29,31 @@ export function MoreScreen({ onNavigate }: { onNavigate: (tab: Tab) => void }) {
       title: 'How it works',
       subtitle: 'Pick 0–9, wait 1 hour, lowest-bet number wins (1→8)',
       Icon: CircleHelp,
-      action: () => onNavigate('play'),
+      action: () => onOpenPage('how'),
     },
     {
       title: 'Game timings',
-      subtitle: 'All 5 games settle every hour',
+      subtitle: 'Live countdowns for all 5 markets',
       Icon: Clock3,
-      action: () => onNavigate('home'),
+      action: () => onOpenPage('timings'),
     },
     {
       title: 'Previous results',
-      subtitle: 'See live results on Home & Games',
+      subtitle: 'Full published result archive',
       Icon: ListOrdered,
-      action: () => onNavigate('home'),
+      action: () => onOpenPage('results'),
     },
     {
       title: 'Add money / Support',
       subtitle: 'WhatsApp support for coin top-up',
       Icon: MessageCircle,
       action: () => openAddMoneyWhatsApp(),
+    },
+    {
+      title: 'Settings',
+      subtitle: 'Sound, support, and account info',
+      Icon: Settings,
+      action: () => onOpenPage('settings'),
     },
   ];
 
@@ -48,7 +72,13 @@ export function MoreScreen({ onNavigate }: { onNavigate: (tab: Tab) => void }) {
             <strong>Admin access</strong>
             <p>Manage games, results, and user coins.</p>
           </div>
-          <button type="button" onClick={() => onNavigate('admin')}>
+          <button
+            type="button"
+            onClick={() => {
+              playTap();
+              onNavigate('admin');
+            }}
+          >
             Open Panel <ChevronRight size={14} />
           </button>
         </div>
@@ -56,8 +86,17 @@ export function MoreScreen({ onNavigate }: { onNavigate: (tab: Tab) => void }) {
 
       <div className="menu-list">
         {items.map(({ title, subtitle, Icon, action }) => (
-          <button key={title} type="button" onClick={action}>
-            <span className="menu-icon"><Icon size={18} /></span>
+          <button
+            key={title}
+            type="button"
+            onClick={() => {
+              playTap();
+              action();
+            }}
+          >
+            <span className="menu-icon">
+              <Icon size={18} />
+            </span>
             <span>
               <strong>{title}</strong>
               <small>{subtitle}</small>
@@ -72,8 +111,8 @@ export function MoreScreen({ onNavigate }: { onNavigate: (tab: Tab) => void }) {
         <div>
           <strong>Result rule</strong>
           <p>
-            Every hour the number with the least total coins bet becomes the result.
-            Winning bets receive 8 coins for each 1 coin staked. Admin can override or correct results.
+            Every hour the number with the least total coins bet becomes the result. Winning bets receive 8 coins
+            for each 1 coin staked. Admin can override or correct results.
           </p>
         </div>
       </div>

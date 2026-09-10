@@ -5,15 +5,30 @@ import { GamesListScreen } from '@/screens/GamesListScreen';
 import { PlayScreen } from '@/screens/PlayScreen';
 import { AccountScreen } from '@/screens/AccountScreen';
 import { AdminScreen } from '@/screens/AdminScreen';
-import { MoreScreen } from '@/screens/MoreScreen';
+import { MoreScreen, type MorePage } from '@/screens/MoreScreen';
+import { HowItWorksScreen } from '@/screens/HowItWorksScreen';
+import { TimingsScreen } from '@/screens/TimingsScreen';
+import { ResultsHistoryScreen } from '@/screens/ResultsHistoryScreen';
+import { SettingsScreen } from '@/screens/SettingsScreen';
+import { SplashScreen } from '@/screens/SplashScreen';
 import { AppShell, type Tab } from '@/components/AppShell';
-import { useState } from 'react';
+import { shouldShowSplash } from '@/lib/prefs';
+import { playNav } from '@/lib/sounds';
+import { useCallback, useState } from 'react';
 
 function AppContent() {
   const { profile, loading } = useAuth();
+  const [splashDone, setSplashDone] = useState(!shouldShowSplash());
   const [activeTab, setActiveTab] = useState<Tab>('home');
   const [playGameId, setPlayGameId] = useState<string | null>(null);
   const [harfGameId, setHarfGameId] = useState<string | null>(null);
+  const [morePage, setMorePage] = useState<MorePage>('menu');
+
+  const finishSplash = useCallback(() => setSplashDone(true), []);
+
+  if (!splashDone) {
+    return <SplashScreen onDone={finishSplash} />;
+  }
 
   if (loading) {
     return (
@@ -28,13 +43,19 @@ function AppContent() {
   if (!profile) return <AuthScreen />;
 
   if (activeTab === 'admin' && profile.is_admin) {
-    return <AdminScreen onBack={() => setActiveTab('more')} />;
+    return (
+      <div className="prototype-app admin-frame">
+        <AdminScreen onBack={() => setActiveTab('more')} />
+      </div>
+    );
   }
 
   const onTabChange = (tab: Tab) => {
+    playNav();
     setActiveTab(tab);
     setPlayGameId(null);
     setHarfGameId(null);
+    setMorePage('menu');
   };
 
   const shellTab = activeTab === 'admin' ? 'more' : activeTab;
@@ -54,8 +75,23 @@ function AppContent() {
         ) : (
           <GamesListScreen mode="harf" onOpenGame={setHarfGameId} />
         ))}
-      {activeTab === 'account' && <AccountScreen onNavigate={onTabChange} />}
-      {activeTab === 'more' && <MoreScreen onNavigate={onTabChange} />}
+      {activeTab === 'account' && (
+        <AccountScreen onNavigate={onTabChange} onOpenSettings={() => {
+          setActiveTab('more');
+          setMorePage('settings');
+        }} />
+      )}
+      {activeTab === 'more' && morePage === 'menu' && (
+        <MoreScreen onNavigate={onTabChange} onOpenPage={setMorePage} />
+      )}
+      {activeTab === 'more' && morePage === 'how' && <HowItWorksScreen onBack={() => setMorePage('menu')} />}
+      {activeTab === 'more' && morePage === 'timings' && <TimingsScreen onBack={() => setMorePage('menu')} />}
+      {activeTab === 'more' && morePage === 'results' && (
+        <ResultsHistoryScreen onBack={() => setMorePage('menu')} />
+      )}
+      {activeTab === 'more' && morePage === 'settings' && (
+        <SettingsScreen onBack={() => setMorePage('menu')} />
+      )}
     </AppShell>
   );
 }
