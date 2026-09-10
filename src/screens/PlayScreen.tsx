@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useAuth } from '@/lib/auth';
-import { supabase, formatCountdown, type Game, type ResultHistory } from '@/lib/supabase';
-import { ArrowLeft, Volume2, VolumeX, Coins } from 'lucide-react';
-import { playBetOk, playSpinStart, playTick, playWin, unlockAudio } from '@/lib/sounds';
+import { supabase, formatCountdown, type Bet, type Game, type ResultHistory } from '@/lib/supabase';
+import { ArrowLeft, Volume2, VolumeX, Coins, PartyPopper, Frown } from 'lucide-react';
+import { playBetOk, playLose, playSpinStart, playTick, playWin, unlockAudio } from '@/lib/sounds';
 import { isMuted, setMuted as persistMuted } from '@/lib/prefs';
 
 /** Clockwise from top on wheel art: 1,2,3,4,5,6,7,8,9,0 */
@@ -15,6 +15,13 @@ function arrowAngleForNumber(n: number) {
   if (idx < 0) return 0;
   return idx * SEG;
 }
+
+type Outcome = {
+  type: 'won' | 'lost';
+  digit: number;
+  stake: number;
+  payout: number;
+};
 
 type Props = {
   gameId: string;
@@ -35,8 +42,11 @@ export function PlayScreen({ gameId, mode, onBack }: Props) {
   const [muted, setMutedState] = useState(isMuted());
   const [arrowRotation, setArrowRotation] = useState(0);
   const [spinning, setSpinning] = useState(false);
+  const [sparkDigit, setSparkDigit] = useState<number | null>(null);
+  const [outcome, setOutcome] = useState<Outcome | null>(null);
   const lastResultRef = useRef<string>('');
   const tickTimer = useRef<number | null>(null);
+  const sparkTimer = useRef<number | null>(null);
 
   useEffect(() => {
     const onMute = (e: Event) => setMutedState(Boolean((e as CustomEvent).detail));
@@ -55,11 +65,12 @@ export function PlayScreen({ gameId, mode, onBack }: Props) {
       } catch {
         /* ignore */
       }
-    }, 15000);
+    }, 8000);
     return () => {
       window.clearInterval(timer);
       window.clearInterval(settlePoll);
       if (tickTimer.current) window.clearInterval(tickTimer.current);
+      if (sparkTimer.current) window.clearTimeout(sparkTimer.current);
     };
   }, [gameId]);
 
@@ -78,7 +89,7 @@ export function PlayScreen({ gameId, mode, onBack }: Props) {
     const g = data as Game;
     setGame(g);
     if (checkSpin && g.result && g.result !== lastResultRef.current && lastResultRef.current !== '') {
-      spinToResult(Number(g.result));
+      spinToResult(Number(g.result), g);
     } else if (g.result && !checkSpin) {
       setArrowRotation(arrowAngleForNumber(Number(g.result)));
     }
@@ -104,7 +115,49 @@ export function PlayScreen({ gameId, mode, onBack }: Props) {
     window.setTimeout(() => setToast(''), 2800);
   };
 
-  const spinToDigit = (digit: number, opts?: { announceResult?: boolean }) => {
+  const triggerSpark = (digit: number) => {
+    setSparkDigit(digit);
+    if (sparkTimer.current) window.clearTimeout(sparkTimer.current);
+    sparkTimer.current = window.setTimeout(() => setSparkDigit(null), 2400);
+  };
+
+  const loadRoundOutcome = async (winningDigit: number, publishedAt: string | null) => {
+    if (!profile) return;
+    const { data } = await supabase
+      .from('bets')
+      .select('*')
+      .eq('user_id', profile.id)
+      .eq('game_id', gameId)
+      .in('status', ['won', 'lost'])
+      .order('created_at', { ascending: false })
+      .limit(40);
+
+    if (!data?.length) return;
+    const publishedMs = publishedAt ? new Date(publishedAt).getTime() : Date.now();
+    const roundBets = (data as Bet[]).filter((b) => {
+      const created = new Date(b.created_at).getTime();
+      return created <= publishedMs + 5000 && publishedMs - created < 70 * 60 * 1000;
+    });
+    if (!roundBets.length) return;
+
+    const won = roundBets.filter((b) => b.status === 'won');
+    const lost = roundBets.filter((b) => b.status === 'lost');
+    if (won.length) {
+      const stake = won.reduce((s, b) => s + b.amount, 0);
+      const payout = won.reduce((s, b) => s + b.payout, 0);
+      setOutcome({ type: 'won', digit: winningDigit, stake, payout });
+      sfx(() => playWin(winningDigit));
+    } else if (lost.length) {
+      const stake = lost.reduce((s, b) => s + b.amount, 0);
+      setOutcome({ type: 'lost', digit: winningDigit, stake, payout: 0 });
+      sfx(playLose);
+    }
+  };
+
+  const spinToDigit = (
+    digit: number,
+    opts?: { announceResult?: boolean; publishedAt?: string | null },
+  ) => {
     if (Number.isNaN(digit) || digit < 0 || digit > 9) return;
     setSpinning(true);
     sfx(playSpinStart);
@@ -123,14 +176,18 @@ export function PlayScreen({ gameId, mode, onBack }: Props) {
     window.setTimeout(() => {
       if (tickTimer.current) window.clearInterval(tickTimer.current);
       setSpinning(false);
+      triggerSpark(digit);
       if (opts?.announceResult) {
-        sfx(() => playWin(digit));
-        notify(`Result: ${digit}`);
+        void loadRoundOutcome(digit, opts.publishedAt ?? null);
+        void loadLast5(gameId);
+        void refreshProfile();
       }
     }, 4200);
   };
 
-  const spinToResult = (digit: number) => spinToDigit(digit, { announceResult: true });
+  const spinToResult = (digit: number, g: Game) => {
+    spinToDigit(digit, { announceResult: true, publishedAt: g.result_published_at });
+  };
 
   const nextMs = game?.next_result_at ? new Date(game.next_result_at).getTime() - now : 0;
   const countdown = formatCountdown(nextMs);
@@ -171,7 +228,6 @@ export function PlayScreen({ gameId, mode, onBack }: Props) {
             .filter(([, v]) => Number(v) > 0)
             .map(([num, amt]) => ({ number: Number(num), amount: Number(amt) }));
 
-    // Number the pin should land on after Bet Ok (highest stake if several)
     const focusNumber =
       mode === 'harf'
         ? (harfDigit as number)
@@ -194,7 +250,7 @@ export function PlayScreen({ gameId, mode, onBack }: Props) {
     setAmounts({});
     setHarfDigit(null);
     setHarfAmount('');
-    notify(mode === 'harf' ? `Harf ${focusNumber} placed ✓` : `Bet on ${focusNumber} ✓`);
+    notify(mode === 'harf' ? `Harf ${focusNumber} placed ✓` : `Bet placed ✓`);
     setSubmitting(false);
   };
 
@@ -241,6 +297,18 @@ export function PlayScreen({ gameId, mode, onBack }: Props) {
         >
           <img className="wheel-arrow" src="/wheel-arrow.png?v=5" alt="" draggable={false} />
         </div>
+        {sparkDigit !== null && (
+          <div
+            className="wheel-spark"
+            style={{ transform: `rotate(${arrowAngleForNumber(sparkDigit)}deg)` }}
+            aria-hidden
+          >
+            <span className="wheel-spark-burst" />
+            <span className="wheel-spark-ray r1" />
+            <span className="wheel-spark-ray r2" />
+            <span className="wheel-spark-ray r3" />
+          </div>
+        )}
       </div>
 
       <div className="stat-grid">
@@ -269,7 +337,7 @@ export function PlayScreen({ gameId, mode, onBack }: Props) {
       {mode === 'full' ? (
         <section className="bet-grid">
           {Array.from({ length: 10 }, (_, n) => (
-            <label key={n} className={amounts[n] ? 'filled' : ''}>
+            <label key={n} className={`${amounts[n] ? 'filled' : ''} ${sparkDigit === n ? 'spark-num' : ''}`}>
               <em>{n}</em>
               <input
                 value={amounts[n] || ''}
@@ -289,7 +357,7 @@ export function PlayScreen({ gameId, mode, onBack }: Props) {
               <button
                 key={n}
                 type="button"
-                className={harfDigit === n ? 'on' : ''}
+                className={`${harfDigit === n ? 'on' : ''} ${sparkDigit === n ? 'spark-num' : ''}`}
                 onClick={() => setHarfDigit(n)}
                 disabled={!game.is_active || bettingClosed || spinning}
               >
@@ -327,6 +395,39 @@ export function PlayScreen({ gameId, mode, onBack }: Props) {
       {toast && (
         <div className="toast">
           <Coins size={16} /> {toast}
+        </div>
+      )}
+
+      {outcome && (
+        <div className="result-modal" role="dialog" aria-modal="true">
+          <div className={`result-modal-card ${outcome.type}`}>
+            {outcome.type === 'won' ? (
+              <>
+                <PartyPopper size={36} />
+                <h2>Congratulations!</h2>
+                <p>
+                  Result <b>{outcome.digit}</b> · You won
+                </p>
+                <strong className="result-payout">+{outcome.payout} coins</strong>
+                <small>
+                  Stake {outcome.stake} · Payout 1 → 8
+                </small>
+              </>
+            ) : (
+              <>
+                <Frown size={36} />
+                <h2>Better luck next time</h2>
+                <p>
+                  Result was <b>{outcome.digit}</b>
+                </p>
+                <strong className="result-payout loss">−{outcome.stake} coins</strong>
+                <small>Lowest-bet number wins each hour</small>
+              </>
+            )}
+            <button type="button" className="result-modal-btn" onClick={() => setOutcome(null)}>
+              OK
+            </button>
+          </div>
         </div>
       )}
     </div>

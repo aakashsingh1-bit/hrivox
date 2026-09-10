@@ -117,14 +117,14 @@ export function AuthScreen() {
         </form>
 
         <p className="auth-note">Win payout: 1 coin → 8 coins · Hourly results</p>
-        <div className="demo-creds">
+        {/* <div className="demo-creds">
           <p>
             <b>Admin</b> — admin@hrivox.com / Password123!
           </p>
           <p>
             <b>Player</b> — player@hrivox.com / Password123!
           </p>
-        </div>
+        </div> */}
       </div>
     </div>
   );
