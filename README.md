@@ -1,41 +1,54 @@
 # HRIVOX 900
 
-Mobile-first webapp (Vite + React + Supabase) for five hourly number games with auto settlement.
+Production mobile app shell (Vite + React + Supabase + Capacitor) for five hourly number games.
 
-## Rules
+**Client review guide:** see [`CLIENT_REVIEW.md`](./CLIENT_REVIEW.md)
 
-- Games: Shri Ganesh, Faridabad, Ghaziabad, Gali, Desawar
-- Bet numbers **0–9**; payout **1 → 8** coins on win
-- Winning number = digit with the **lowest total coins** bet that round (tie → smallest digit)
-- Round length: **1 hour** (`games.next_result_at`)
-- Add Money: WhatsApp support (set `SUPPORT_WHATSAPP` in `src/lib/supabase.ts`)
+## Game rules
 
-## Setup
+- Markets: Shri Ganesh, Faridabad, Ghaziabad, Gali, Desawar  
+- Numbers **0–9** · payout **1 → 8** on win  
+- Winner = digit with the **lowest total coins** bet (tie → smallest digit)  
+- Cycle: **1 hour** per round  
+- Add Money: WhatsApp (`SUPPORT_WHATSAPP` in `src/lib/supabase.ts`)
 
-1. Create a Supabase project.
-2. Run migrations in order from `supabase/migrations/` in the SQL editor (or `supabase db push`).
-3. Copy `.env.example` → `.env` and set `VITE_SUPABASE_URL` + `VITE_SUPABASE_ANON_KEY`.
-4. `npm install && npm run dev`
-5. Sign up a user, then in Supabase SQL set admin:
+## Quick start (web)
 
-```sql
-UPDATE profiles SET is_admin = true WHERE id = '<user-uuid>';
+```bash
+npm install
+cp .env.example .env   # set VITE_SUPABASE_URL + VITE_SUPABASE_ANON_KEY
+npm run dev
 ```
+
+Production web build:
+
+```bash
+npm run build
+npm run preview
+```
+
+## Android APK
+
+```bash
+npm run build
+npx cap sync android
+npx cap open android
+```
+
+Then **Build → Build APK(s)** in Android Studio.  
+Requires JDK 17+ and Android Studio on the build machine.
+
+## Admin
+
+Sign in as an admin user → **More → Open Panel**  
+Live digit totals, override, auto settle, credit coins, users & history.
 
 ## Auto settle
 
-- Clients call `try_settle_due` on load/poll (works without cron).
-- Production: deploy `supabase/functions/settle-games` and schedule every minute, **or** enable `pg_cron`:
+Clients poll `try_settle_due`. For production, also schedule:
 
 ```sql
 select cron.schedule('settle-hrivox', '* * * * *', $$select settle_due_games();$$);
 ```
 
-## Android APK later
-
-Wrap this build with Capacitor (`npx cap add android`) pointing at the production URL or bundled `dist/`.
-
-## Admin
-
-Open **More → Open Panel** when `is_admin` is true: game ON/OFF, override 0–9, auto settle, credit coins, users & bets.
-# hrivox
+or deploy `supabase/functions/settle-games`.

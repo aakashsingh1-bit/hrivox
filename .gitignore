@@ -21,3 +21,15 @@ dist-ssr
 *.sln
 *.sw?
 .env
+.env.*.local
+
+# Android local
+android/.gradle
+android/app/build
+android/build
+android/captures
+android/local.properties
+*.apk
+*.aab
+*.keystore
+*.jks

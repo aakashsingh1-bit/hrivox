@@ -79,7 +79,7 @@ export function SettingsScreen({ onBack }: { onBack: () => void }) {
         Logout
       </button>
 
-      <p className="settings-version">HRIVOX 900 · v1.0.0</p>
+      <p className="settings-version">HRIVOX 900 · v1.0.0 · Production review</p>
     </div>
   );
 }
