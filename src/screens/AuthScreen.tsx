@@ -27,7 +27,13 @@ export function AuthScreen() {
       }
     } else {
       const { error } = await signIn(email, password);
-      if (error) setError(error);
+      if (error) {
+        if (/email not confirmed/i.test(error)) {
+          setError('Email not confirmed. In Supabase: Authentication → Users → confirm admin/player, or run supabase/confirm_emails.sql in SQL Editor.');
+        } else {
+          setError(error);
+        }
+      }
     }
     setBusy(false);
   };
@@ -88,6 +94,10 @@ export function AuthScreen() {
         </form>
 
         <p className="auth-note">Win payout: 1 coin → 8 coins · Hourly results</p>
+        <div className="demo-creds">
+          <p><b>Admin</b> — admin@hrivox.com / Password123!</p>
+          <p><b>Player</b> — player@hrivox.com / Password123!</p>
+        </div>
       </div>
     </div>
   );

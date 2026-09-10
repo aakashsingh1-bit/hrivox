@@ -79,6 +79,12 @@ button:focus-visible, input:focus-visible { outline: 3px solid rgba(39, 154, 224
 .auth-submit:hover { background: #1a7ab8; }
 .auth-submit:disabled { opacity: .6; }
 .auth-note { margin-top: 16px; text-align: center; color: #8491a3; font-size: 11px; }
+.demo-creds {
+  margin-top: 12px; padding: 12px; border-radius: 10px; background: #eef6fc; border: 1px solid #c5e4f5;
+  text-align: left; font-size: 12px; color: #1a4a6e;
+}
+.demo-creds p { margin: 4px 0; }
+.demo-creds b { color: #192d45; }
 
 /* ===== App Shell ===== */
 .prototype-app {
@@ -149,11 +155,11 @@ button:focus-visible, input:focus-visible { outline: 3px solid rgba(39, 154, 224
 }
 .ad-money:hover { opacity: .85; }
 
-.games-section { padding: 8px 0 6px; }
+.games-section { padding: 4px 0 6px; }
 .section-top { display: flex; justify-content: space-between; align-items: end; gap: 10px; }
 .section-top h2 { margin: 4px 0 0; color: #1b2c42; font: 700 20px 'Space Grotesk'; }
 .view-all { display: flex; align-items: center; gap: 2px; padding: 0; border: 0; color: #298fd0; background: transparent; font-size: 12px; font-weight: 600; }
-.game-scroller { display: flex; gap: 12px; padding: 16px 0 18px; overflow-x: auto; scrollbar-width: none; }
+.game-scroller { display: flex; gap: 12px; padding: 8px 0 18px; overflow-x: auto; scrollbar-width: none; }
 .game-scroller::-webkit-scrollbar { display: none; }
 .game-tile {
   width: 140px; height: 142px; flex: 0 0 auto; padding: 18px 14px;
