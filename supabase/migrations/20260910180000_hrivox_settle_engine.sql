@@ -31,14 +31,8 @@ WHERE next_result_at IS NULL;
 DROP POLICY IF EXISTS "update_own_profile" ON profiles;
 CREATE POLICY "update_own_profile" ON profiles FOR UPDATE
   TO authenticated
-  USING (
-    auth.uid() = id
-    OR EXISTS (SELECT 1 FROM profiles p WHERE p.id = auth.uid() AND p.is_admin = true)
-  )
-  WITH CHECK (
-    auth.uid() = id
-    OR EXISTS (SELECT 1 FROM profiles p WHERE p.id = auth.uid() AND p.is_admin = true)
-  );
+  USING (auth.uid() = id OR public.is_admin())
+  WITH CHECK (auth.uid() = id OR public.is_admin());
 
 CREATE OR REPLACE FUNCTION protect_profile_sensitive()
 RETURNS trigger

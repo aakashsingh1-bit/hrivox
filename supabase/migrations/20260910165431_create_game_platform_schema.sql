@@ -34,9 +34,25 @@ CREATE TABLE IF NOT EXISTS profiles (
 
 ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
 
+CREATE OR REPLACE FUNCTION public.is_admin()
+RETURNS boolean
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
+STABLE
+AS $$
+  SELECT COALESCE(
+    (SELECT p.is_admin FROM public.profiles p WHERE p.id = auth.uid()),
+    false
+  );
+$$;
+
+REVOKE ALL ON FUNCTION public.is_admin() FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.is_admin() TO authenticated, anon, service_role;
+
 DROP POLICY IF EXISTS "select_own_profile" ON profiles;
 CREATE POLICY "select_own_profile" ON profiles FOR SELECT
-  TO authenticated USING (auth.uid() = id OR EXISTS (SELECT 1 FROM profiles p WHERE p.id = auth.uid() AND p.is_admin = true));
+  TO authenticated USING (auth.uid() = id OR public.is_admin());
 
 DROP POLICY IF EXISTS "insert_own_profile" ON profiles;
 CREATE POLICY "insert_own_profile" ON profiles FOR INSERT
@@ -44,7 +60,9 @@ CREATE POLICY "insert_own_profile" ON profiles FOR INSERT
 
 DROP POLICY IF EXISTS "update_own_profile" ON profiles;
 CREATE POLICY "update_own_profile" ON profiles FOR UPDATE
-  TO authenticated USING (auth.uid() = id) WITH CHECK (auth.uid() = id);
+  TO authenticated
+  USING (auth.uid() = id OR public.is_admin())
+  WITH CHECK (auth.uid() = id OR public.is_admin());
 
 -- Games table
 CREATE TABLE IF NOT EXISTS games (
@@ -66,8 +84,8 @@ CREATE POLICY "read_games" ON games FOR SELECT
 
 DROP POLICY IF EXISTS "update_games_admin" ON games;
 CREATE POLICY "update_games_admin" ON games FOR UPDATE
-  TO authenticated USING (EXISTS (SELECT 1 FROM profiles p WHERE p.id = auth.uid() AND p.is_admin = true))
-  WITH CHECK (EXISTS (SELECT 1 FROM profiles p WHERE p.id = auth.uid() AND p.is_admin = true));
+  TO authenticated USING (public.is_admin())
+  WITH CHECK (public.is_admin());
 
 -- Bets table
 CREATE TABLE IF NOT EXISTS bets (
@@ -85,7 +103,7 @@ ALTER TABLE bets ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "select_own_bets" ON bets;
 CREATE POLICY "select_own_bets" ON bets FOR SELECT
-  TO authenticated USING (auth.uid() = user_id OR EXISTS (SELECT 1 FROM profiles p WHERE p.id = auth.uid() AND p.is_admin = true));
+  TO authenticated USING (auth.uid() = user_id OR public.is_admin());
 
 DROP POLICY IF EXISTS "insert_own_bets" ON bets;
 CREATE POLICY "insert_own_bets" ON bets FOR INSERT
@@ -93,8 +111,8 @@ CREATE POLICY "insert_own_bets" ON bets FOR INSERT
 
 DROP POLICY IF EXISTS "update_bets_admin" ON bets;
 CREATE POLICY "update_bets_admin" ON bets FOR UPDATE
-  TO authenticated USING (EXISTS (SELECT 1 FROM profiles p WHERE p.id = auth.uid() AND p.is_admin = true))
-  WITH CHECK (EXISTS (SELECT 1 FROM profiles p WHERE p.id = auth.uid() AND p.is_admin = true));
+  TO authenticated USING (public.is_admin())
+  WITH CHECK (public.is_admin());
 
 -- Results history table
 CREATE TABLE IF NOT EXISTS results_history (
@@ -112,7 +130,7 @@ CREATE POLICY "read_results" ON results_history FOR SELECT
 
 DROP POLICY IF EXISTS "insert_results_admin" ON results_history;
 CREATE POLICY "insert_results_admin" ON results_history FOR INSERT
-  TO authenticated WITH CHECK (EXISTS (SELECT 1 FROM profiles p WHERE p.id = auth.uid() AND p.is_admin = true));
+  TO authenticated WITH CHECK (public.is_admin());
 
 -- Function to handle result publication: credit winning bets
 CREATE OR REPLACE FUNCTION publish_game_result(p_game_id uuid, p_result text)

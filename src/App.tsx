@@ -1,6 +1,7 @@
 import { AuthProvider, useAuth } from '@/lib/auth';
 import { AuthScreen } from '@/screens/AuthScreen';
 import { HomeScreen } from '@/screens/HomeScreen';
+import { GamesListScreen } from '@/screens/GamesListScreen';
 import { PlayScreen } from '@/screens/PlayScreen';
 import { AccountScreen } from '@/screens/AccountScreen';
 import { AdminScreen } from '@/screens/AdminScreen';
@@ -11,6 +12,8 @@ import { useState } from 'react';
 function AppContent() {
   const { profile, loading } = useAuth();
   const [activeTab, setActiveTab] = useState<Tab>('home');
+  const [playGameId, setPlayGameId] = useState<string | null>(null);
+  const [harfGameId, setHarfGameId] = useState<string | null>(null);
 
   if (loading) {
     return (
@@ -28,15 +31,31 @@ function AppContent() {
     return <AdminScreen onBack={() => setActiveTab('more')} />;
   }
 
+  const onTabChange = (tab: Tab) => {
+    setActiveTab(tab);
+    setPlayGameId(null);
+    setHarfGameId(null);
+  };
+
   const shellTab = activeTab === 'admin' ? 'more' : activeTab;
 
   return (
-    <AppShell activeTab={shellTab} onTabChange={setActiveTab}>
-      {activeTab === 'home' && <HomeScreen onNavigate={setActiveTab} />}
-      {activeTab === 'play' && <PlayScreen onBack={() => setActiveTab('home')} />}
-      {activeTab === 'half' && <PlayScreen onBack={() => setActiveTab('home')} half />}
-      {activeTab === 'account' && <AccountScreen onNavigate={setActiveTab} />}
-      {activeTab === 'more' && <MoreScreen onNavigate={setActiveTab} />}
+    <AppShell activeTab={shellTab} onTabChange={onTabChange}>
+      {activeTab === 'home' && <HomeScreen onNavigate={onTabChange} />}
+      {activeTab === 'play' &&
+        (playGameId ? (
+          <PlayScreen gameId={playGameId} mode="full" onBack={() => setPlayGameId(null)} />
+        ) : (
+          <GamesListScreen mode="full" onOpenGame={setPlayGameId} />
+        ))}
+      {activeTab === 'half' &&
+        (harfGameId ? (
+          <PlayScreen gameId={harfGameId} mode="harf" onBack={() => setHarfGameId(null)} />
+        ) : (
+          <GamesListScreen mode="harf" onOpenGame={setHarfGameId} />
+        ))}
+      {activeTab === 'account' && <AccountScreen onNavigate={onTabChange} />}
+      {activeTab === 'more' && <MoreScreen onNavigate={onTabChange} />}
     </AppShell>
   );
 }

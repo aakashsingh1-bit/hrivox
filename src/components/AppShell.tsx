@@ -20,7 +20,7 @@ export function AppShell({ activeTab, onTabChange, children }: { activeTab: Tab;
           <button key={item.id} type="button" className={activeTab === item.id ? 'active' : ''} onClick={() => onTabChange(item.id)}>
             {item.id === 'home' && <HomeIcon size={22} />}
             {item.id === 'play' && <Gamepad2 size={22} />}
-            {item.id === 'half' && <span className="half-icon">½</span>}
+            {item.id === 'half' && <span className="half-icon">H</span>}
             {item.id === 'account' && <WalletCards size={22} />}
             {item.id === 'more' && <Menu size={22} />}
             <span>{item.label}</span>
