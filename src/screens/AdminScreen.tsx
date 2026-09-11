@@ -171,8 +171,8 @@ export function AdminScreen({ onBack }: { onBack?: () => void }) {
 
   const publishOverride = async (game: Game) => {
     const result = editResult[game.id];
-    if (result === undefined || result === '' || Number(result) < 0 || Number(result) > 9) {
-      notify('Enter result 0–9');
+    if (result === undefined || result === '' || Number(result) < 0 || Number(result) > 99) {
+      notify('Enter result 0–99');
       return;
     }
     const { error } = await supabase.rpc('admin_settle_game', {
@@ -369,12 +369,12 @@ export function AdminScreen({ onBack }: { onBack?: () => void }) {
                     <div className="admin-game-actions stacked">
                       <input
                         className="result-input"
-                        placeholder="Override 0-9"
+                        placeholder="Override 0-99"
                         value={editResult[game.id] ?? ''}
                         onChange={(e) =>
                           setEditResult((cur) => ({
                             ...cur,
-                            [game.id]: e.target.value.replace(/[^0-9]/g, '').slice(0, 1),
+                            [game.id]: e.target.value.replace(/[^0-9]/g, '').slice(0, 2),
                           }))
                         }
                         inputMode="numeric"

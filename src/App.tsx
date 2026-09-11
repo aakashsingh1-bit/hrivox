@@ -3,6 +3,7 @@ import { AuthScreen } from '@/screens/AuthScreen';
 import { HomeScreen } from '@/screens/HomeScreen';
 import { GamesListScreen } from '@/screens/GamesListScreen';
 import { PlayScreen } from '@/screens/PlayScreen';
+import { MarketPlayScreen } from '@/screens/MarketPlayScreen';
 import { AccountScreen } from '@/screens/AccountScreen';
 import { AdminScreen } from '@/screens/AdminScreen';
 import { MoreScreen, type MorePage } from '@/screens/MoreScreen';
@@ -59,13 +60,14 @@ function AppContent() {
   };
 
   const shellTab = activeTab === 'admin' ? 'more' : activeTab;
+  const hideNav = Boolean(activeTab === 'play' && playGameId) || Boolean(activeTab === 'half' && harfGameId);
 
   return (
-    <AppShell activeTab={shellTab} onTabChange={onTabChange}>
+    <AppShell activeTab={shellTab} onTabChange={onTabChange} hideNav={hideNav}>
       {activeTab === 'home' && <HomeScreen onNavigate={onTabChange} />}
       {activeTab === 'play' &&
         (playGameId ? (
-          <PlayScreen gameId={playGameId} mode="full" onBack={() => setPlayGameId(null)} />
+          <MarketPlayScreen gameId={playGameId} onBack={() => setPlayGameId(null)} />
         ) : (
           <GamesListScreen mode="full" onOpenGame={setPlayGameId} />
         ))}
