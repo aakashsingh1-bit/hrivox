@@ -1,10 +1,25 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/lib/auth';
-import { supabase, openAddMoneyWhatsApp, formatCountdown, type Game, type Bet } from '@/lib/supabase';
+import {
+  supabase,
+  openAddMoneyWhatsApp,
+  formatCountdown,
+  isHarfGame,
+  type Game,
+  type Bet,
+} from '@/lib/supabase';
 import { Coins, ChevronRight, MessageCircle, RefreshCw, ShieldCheck } from 'lucide-react';
 import type { Tab } from '@/components/AppShell';
 
 const TILE_COLORS = ['purple', 'pink', 'cyan', 'green', 'orange'];
+
+function sortHomeGames(list: Game[]) {
+  return [...list].sort((a, b) => {
+    if (isHarfGame(a) && !isHarfGame(b)) return -1;
+    if (!isHarfGame(a) && isHarfGame(b)) return 1;
+    return a.created_at.localeCompare(b.created_at);
+  });
+}
 
 export function HomeScreen({ onNavigate }: { onNavigate: (tab: Tab) => void }) {
   const { profile, refreshProfile } = useAuth();
@@ -38,7 +53,7 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: Tab) => void }) {
       /* ignore if RPC not ready */
     }
     const { data } = await supabase.from('games').select('*').order('created_at');
-    if (data) setGames(data as Game[]);
+    if (data) setGames(sortHomeGames(data as Game[]));
   };
 
   const loadRecentBets = async () => {
@@ -93,10 +108,12 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: Tab) => void }) {
             <div className="result-time">{timeLabel}</div>
             <div className="result-divider" />
             <div className="result-name">
-              <i /> {game.short_code || game.name}
+              <i /> {isHarfGame(game) ? 'HARF' : game.short_code || game.name}
             </div>
             <strong>{game.result || '--'}</strong>
-            <small className="result-sub">{game.name} · Next {formatCountdown(nextMs)}</small>
+            <small className="result-sub">
+              {isHarfGame(game) ? 'Play Harf' : game.name} · Next {formatCountdown(nextMs)}
+            </small>
           </div>
         )}
       </section>
@@ -114,11 +131,11 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: Tab) => void }) {
               className={`game-tile ${TILE_COLORS[index % 5]} ${selectedGame === index ? 'selected' : ''}`}
               onClick={() => {
                 setSelectedGame(index);
-                onNavigate('play');
+                onNavigate(isHarfGame(item) ? 'half' : 'play');
               }}
             >
               <strong>{item.result || '--'}</strong>
-              <span>{item.name}</span>
+              <span>{isHarfGame(item) ? 'Play Harf' : item.name}</span>
               <small>
                 {item.next_result_at
                   ? new Date(item.next_result_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
@@ -164,7 +181,17 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: Tab) => void }) {
           </span>
           <span>
             <strong>Play Game</strong>
-            <small>1 coin = 8 win</small>
+            <small>Markets · Open / Jantari / Crossing</small>
+          </span>
+          <ChevronRight size={16} />
+        </button>
+        <button type="button" onClick={() => onNavigate('half')}>
+          <span className="quick-icon gold">
+            <Coins size={18} />
+          </span>
+          <span>
+            <strong>Play Harf</strong>
+            <small>Wheel · digits 0–9</small>
           </span>
           <ChevronRight size={16} />
         </button>

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { ArrowLeft } from 'lucide-react';
-import { supabase, type Game, type ResultHistory } from '@/lib/supabase';
+import { isHarfGame, supabase, type Game, type ResultHistory } from '@/lib/supabase';
 
 export function ResultsHistoryScreen({ onBack }: { onBack: () => void }) {
   const [games, setGames] = useState<Game[]>([]);
@@ -13,7 +13,10 @@ export function ResultsHistoryScreen({ onBack }: { onBack: () => void }) {
         supabase.from('games').select('*').order('created_at'),
         supabase.from('results_history').select('*').order('published_at', { ascending: false }).limit(100),
       ]);
-      if (g.data) setGames(g.data as Game[]);
+      if (g.data) {
+        const list = g.data as Game[];
+        setGames([...list.filter((x) => isHarfGame(x)), ...list.filter((x) => !isHarfGame(x))]);
+      }
       if (r.data) setResults(r.data as ResultHistory[]);
     })();
   }, []);
@@ -23,7 +26,11 @@ export function ResultsHistoryScreen({ onBack }: { onBack: () => void }) {
     [results, filter],
   );
 
-  const nameOf = (id: string) => games.find((g) => g.id === id)?.name ?? '—';
+  const nameOf = (id: string) => {
+    const g = games.find((x) => x.id === id);
+    if (!g) return '—';
+    return isHarfGame(g) ? 'Play Harf' : g.name;
+  };
 
   return (
     <div className="info-screen page-screen">
@@ -48,7 +55,7 @@ export function ResultsHistoryScreen({ onBack }: { onBack: () => void }) {
             className={filter === g.id ? 'on' : ''}
             onClick={() => setFilter(g.id)}
           >
-            {g.short_code}
+            {isHarfGame(g) ? 'HARF' : g.short_code}
           </button>
         ))}
       </div>

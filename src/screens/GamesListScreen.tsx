@@ -1,10 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/lib/auth';
-import { supabase, type Game } from '@/lib/supabase';
+import { HARF_SHORT_CODE, supabase, type Game } from '@/lib/supabase';
 import { Coins } from 'lucide-react';
 
 type Props = {
-  mode: 'full' | 'harf';
   onOpenGame: (gameId: string) => void;
 };
 
@@ -17,7 +16,7 @@ function formatRange(game: Game) {
   return '(Hourly)';
 }
 
-export function GamesListScreen({ mode, onOpenGame }: Props) {
+export function GamesListScreen({ onOpenGame }: Props) {
   const { profile } = useAuth();
   const [games, setGames] = useState<Game[]>([]);
 
@@ -29,7 +28,10 @@ export function GamesListScreen({ mode, onOpenGame }: Props) {
         /* ignore */
       }
       const { data } = await supabase.from('games').select('*').order('created_at');
-      if (data) setGames(data as Game[]);
+      if (data) {
+        // Markets only — Play Harf is a separate standalone game
+        setGames((data as Game[]).filter((g) => g.short_code !== HARF_SHORT_CODE));
+      }
     })();
   }, []);
 
@@ -67,10 +69,6 @@ export function GamesListScreen({ mode, onOpenGame }: Props) {
         ))}
         {games.length === 0 && <p className="empty-state">No markets loaded.</p>}
       </div>
-
-      {mode === 'harf' && (
-        <p className="market-hint">Play Harf — select a market, then bet one digit on the wheel.</p>
-      )}
     </div>
   );
 }

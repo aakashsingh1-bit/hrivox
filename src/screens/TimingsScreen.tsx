@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { ArrowLeft, Clock3 } from 'lucide-react';
-import { supabase, formatCountdown, type Game } from '@/lib/supabase';
+import { isHarfGame, supabase, formatCountdown, type Game } from '@/lib/supabase';
 
 export function TimingsScreen({ onBack }: { onBack: () => void }) {
   const [games, setGames] = useState<Game[]>([]);
@@ -9,7 +9,10 @@ export function TimingsScreen({ onBack }: { onBack: () => void }) {
   useEffect(() => {
     void (async () => {
       const { data } = await supabase.from('games').select('*').order('created_at');
-      if (data) setGames(data as Game[]);
+      if (data) {
+        const list = data as Game[];
+        setGames([...list.filter((g) => isHarfGame(g)), ...list.filter((g) => !isHarfGame(g))]);
+      }
     })();
     const t = window.setInterval(() => setNow(Date.now()), 1000);
     return () => window.clearInterval(t);
@@ -28,7 +31,7 @@ export function TimingsScreen({ onBack }: { onBack: () => void }) {
       </div>
 
       <p className="info-lead">
-        All 5 markets run on a continuous <b>1-hour cycle</b>. Next result countdown is live below.
+        Play Harf and all 5 markets run on a continuous <b>1-hour cycle</b>. Next result countdown is live below.
       </p>
 
       <div className="timing-list">
@@ -37,8 +40,10 @@ export function TimingsScreen({ onBack }: { onBack: () => void }) {
           return (
             <div key={g.id} className={`timing-card ${g.is_active ? '' : 'off'}`}>
               <div className="timing-left">
-                <strong>{g.name}</strong>
-                <small>{g.short_code} · Last: {g.result || '—'}</small>
+                <strong>{isHarfGame(g) ? 'Play Harf' : g.name}</strong>
+                <small>
+                  {isHarfGame(g) ? 'HARF' : g.short_code} · Last: {g.result || '—'}
+                </small>
               </div>
               <div className="timing-right">
                 <Clock3 size={14} />
@@ -48,7 +53,7 @@ export function TimingsScreen({ onBack }: { onBack: () => void }) {
             </div>
           );
         })}
-        {games.length === 0 && <p className="empty-state">Loading markets…</p>}
+        {games.length === 0 && <p className="empty-state">Loading games…</p>}
       </div>
 
       <div className="info-callout">

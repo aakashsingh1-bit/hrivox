@@ -8,6 +8,9 @@ export const supabase = createClient(supabaseUrl || 'https://placeholder.supabas
 /** WhatsApp support number (digits only, with country code). Update for client. */
 export const SUPPORT_WHATSAPP = '919999999999';
 
+/** Standalone Play Harf game short_code (separate from market games). */
+export const HARF_SHORT_CODE = 'HF';
+
 export type Profile = {
   id: string;
   display_name: string;
@@ -28,6 +31,10 @@ export type Game = {
   next_result_at: string | null;
   created_at: string;
 };
+
+export function isHarfGame(game: Pick<Game, 'short_code'> | null | undefined) {
+  return game?.short_code === HARF_SHORT_CODE;
+}
 
 export type Bet = {
   id: string;

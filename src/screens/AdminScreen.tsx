@@ -1,6 +1,14 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '@/lib/auth';
-import { supabase, formatCountdown, type Game, type Profile, type Bet, type ResultHistory } from '@/lib/supabase';
+import {
+  supabase,
+  formatCountdown,
+  isHarfGame,
+  type Game,
+  type Profile,
+  type Bet,
+  type ResultHistory,
+} from '@/lib/supabase';
 import {
   ShieldCheck,
   Users,
@@ -21,6 +29,19 @@ const SECTIONS: { id: AdminSection; label: string }[] = [
   { id: 'bets', label: 'Bets' },
   { id: 'results', label: 'Results' },
 ];
+
+function sortGames(list: Game[]) {
+  return [...list].sort((a, b) => {
+    if (isHarfGame(a) && !isHarfGame(b)) return -1;
+    if (!isHarfGame(a) && isHarfGame(b)) return 1;
+    return a.created_at.localeCompare(b.created_at);
+  });
+}
+
+function gameLabel(game: Game | undefined) {
+  if (!game) return '—';
+  return isHarfGame(game) ? `${game.name} · HARF` : `${game.short_code}`;
+}
 
 export function AdminScreen({ onBack }: { onBack?: () => void }) {
   const { profile, signOut } = useAuth();
@@ -60,7 +81,7 @@ export function AdminScreen({ onBack }: { onBack?: () => void }) {
     ]);
     let nextId = gameId;
     if (g.data) {
-      const list = g.data as Game[];
+      const list = sortGames(g.data as Game[]);
       setGames(list);
       if (!nextId && list[0]) {
         nextId = list[0].id;
@@ -110,7 +131,7 @@ export function AdminScreen({ onBack }: { onBack?: () => void }) {
     ]);
     let nextSelected = selectedGameId;
     if (g.data) {
-      const list = g.data as Game[];
+      const list = sortGames(g.data as Game[]);
       setGames(list);
       if (!nextSelected && list[0]) {
         nextSelected = list[0].id;
@@ -139,25 +160,41 @@ export function AdminScreen({ onBack }: { onBack?: () => void }) {
     );
   }, [users, search]);
 
+  const selectedGame = useMemo(
+    () => games.find((g) => g.id === selectedGameId) ?? null,
+    [games, selectedGameId],
+  );
+  const isSelectedHarf = isHarfGame(selectedGame);
+
   const pendingByDigit = useMemo(() => {
-    const totals = Array.from({ length: 10 }, () => 0);
+    const size = isSelectedHarf ? 10 : 100;
+    const totals = Array.from({ length: size }, () => 0);
     for (const bet of pendingBets) {
-      if (bet.selected_number >= 0 && bet.selected_number <= 9) {
+      if (bet.selected_number >= 0 && bet.selected_number < size) {
         totals[bet.selected_number] += bet.amount;
       }
     }
     return totals;
-  }, [pendingBets]);
+  }, [pendingBets, isSelectedHarf]);
 
   const pendingStakeTotal = useMemo(() => pendingByDigit.reduce((a, b) => a + b, 0), [pendingByDigit]);
 
   const lowestDigit = useMemo(() => {
-    let best = 0;
-    for (let i = 1; i < 10; i++) {
-      if (pendingByDigit[i] < pendingByDigit[best]) best = i;
+    if (pendingBets.length === 0) return 0;
+    const map = new Map<number, number>();
+    for (const bet of pendingBets) {
+      map.set(bet.selected_number, (map.get(bet.selected_number) || 0) + bet.amount);
     }
-    return best;
-  }, [pendingByDigit]);
+    let bestNum = [...map.keys()][0] ?? 0;
+    let bestAmt = map.get(bestNum) ?? 0;
+    for (const [n, amt] of map) {
+      if (amt < bestAmt || (amt === bestAmt && n < bestNum)) {
+        bestNum = n;
+        bestAmt = amt;
+      }
+    }
+    return bestNum;
+  }, [pendingBets]);
 
   const toggleGame = async (game: Game) => {
     const { error } = await supabase.from('games').update({ is_active: !game.is_active }).eq('id', game.id);
@@ -171,8 +208,9 @@ export function AdminScreen({ onBack }: { onBack?: () => void }) {
 
   const publishOverride = async (game: Game) => {
     const result = editResult[game.id];
-    if (result === undefined || result === '' || Number(result) < 0 || Number(result) > 99) {
-      notify('Enter result 0–99');
+    const max = isHarfGame(game) ? 9 : 99;
+    if (result === undefined || result === '' || Number(result) < 0 || Number(result) > max) {
+      notify(`Enter result 0–${max}`);
       return;
     }
     const { error } = await supabase.rpc('admin_settle_game', {
@@ -285,7 +323,7 @@ export function AdminScreen({ onBack }: { onBack?: () => void }) {
             </div>
 
             <h2 className="admin-pane-title">
-              <LayoutDashboard size={16} /> Live markets
+              <LayoutDashboard size={16} /> Live games
             </h2>
             <div className="admin-game-list">
               {games.map((game) => {
@@ -301,7 +339,10 @@ export function AdminScreen({ onBack }: { onBack?: () => void }) {
                     }}
                   >
                     <div>
-                      <strong>{game.name}</strong>
+                      <strong>
+                        {game.name}
+                        {isHarfGame(game) ? ' · HARF' : ''}
+                      </strong>
                       <small>
                         Last {game.result || '—'} · Next {formatCountdown(ms)}
                       </small>
@@ -330,7 +371,7 @@ export function AdminScreen({ onBack }: { onBack?: () => void }) {
                   className={selectedGameId === g.id ? 'on' : ''}
                   onClick={() => setSelectedGameId(g.id)}
                 >
-                  {g.short_code}
+                  {isHarfGame(g) ? 'HARF' : g.short_code}
                 </button>
               ))}
             </div>
@@ -339,11 +380,20 @@ export function AdminScreen({ onBack }: { onBack?: () => void }) {
               .filter((g) => !selectedGameId || g.id === selectedGameId)
               .map((game) => {
                 const ms = game.next_result_at ? new Date(game.next_result_at).getTime() - now : 0;
+                const harf = isHarfGame(game);
+                const maxOverride = harf ? 9 : 99;
+                const digitSlice = harf ? pendingByDigit : pendingByDigit.slice(0, 10);
+                const extraMarket = harf
+                  ? []
+                  : pendingByDigit
+                      .map((amt, n) => ({ n, amt }))
+                      .filter((x) => x.n >= 10 && x.amt > 0);
                 return (
                   <div key={game.id} className="admin-game-card">
                     <div className="admin-game-info">
                       <strong>
                         {game.name} ({game.short_code})
+                        {harf ? <span className="harf-badge"> PLAY HARF</span> : <span className="market-badge"> MARKET</span>}
                       </strong>
                       <small>
                         Result: {game.result || '--'} · Next: {formatCountdown(ms)}
@@ -354,27 +404,40 @@ export function AdminScreen({ onBack }: { onBack?: () => void }) {
                     </div>
 
                     <p className="digit-totals-label">
-                      Live open-round totals · {pendingBets.length} bets · {pendingStakeTotal} coins (lowest → {lowestDigit})
+                      Live open-round totals · {pendingBets.length} bets · {pendingStakeTotal} coins (lowest →{' '}
+                      {lowestDigit})
                       <span className="live-dot" aria-hidden /> Live
                     </p>
                     <div className="digit-totals">
-                      {pendingByDigit.map((amt, n) => (
+                      {digitSlice.map((amt, n) => (
                         <div key={n} className={`digit-total ${n === lowestDigit ? 'lowest' : ''}`}>
                           <em>{n}</em>
                           <b>{amt}</b>
                         </div>
                       ))}
                     </div>
+                    {extraMarket.length > 0 && (
+                      <div className="digit-totals extra">
+                        {extraMarket.map(({ n, amt }) => (
+                          <div key={n} className={`digit-total ${n === lowestDigit ? 'lowest' : ''}`}>
+                            <em>{n}</em>
+                            <b>{amt}</b>
+                          </div>
+                        ))}
+                      </div>
+                    )}
 
                     <div className="admin-game-actions stacked">
                       <input
                         className="result-input"
-                        placeholder="Override 0-99"
+                        placeholder={`Override 0-${maxOverride}`}
                         value={editResult[game.id] ?? ''}
                         onChange={(e) =>
                           setEditResult((cur) => ({
                             ...cur,
-                            [game.id]: e.target.value.replace(/[^0-9]/g, '').slice(0, 2),
+                            [game.id]: e.target.value
+                              .replace(/[^0-9]/g, '')
+                              .slice(0, harf ? 1 : 2),
                           }))
                         }
                         inputMode="numeric"
@@ -457,7 +520,8 @@ export function AdminScreen({ onBack }: { onBack?: () => void }) {
                     <div>
                       <strong>{user?.display_name ?? '—'}</strong>
                       <small>
-                        {game?.short_code ?? '—'} · {bet.amount} coins · {new Date(bet.created_at).toLocaleString()}
+                        {gameLabel(game)} · #{bet.selected_number} · {bet.amount} coins ·{' '}
+                        {new Date(bet.created_at).toLocaleString()}
                       </small>
                     </div>
                     <b className={bet.status === 'won' ? 'text-green' : bet.status === 'lost' ? 'text-red' : ''}>
@@ -481,7 +545,10 @@ export function AdminScreen({ onBack }: { onBack?: () => void }) {
                   <div key={r.id} className="admin-bet-card">
                     <span className="result-digit">{r.result}</span>
                     <div>
-                      <strong>{game?.name ?? '—'}</strong>
+                      <strong>
+                        {game?.name ?? '—'}
+                        {isHarfGame(game) ? ' · HARF' : ''}
+                      </strong>
                       <small>{new Date(r.published_at).toLocaleString()}</small>
                     </div>
                   </div>

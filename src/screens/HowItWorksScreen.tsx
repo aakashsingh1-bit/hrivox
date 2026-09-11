@@ -1,4 +1,4 @@
-import { ArrowLeft, Coins, Timer, Trophy, CircleDot } from 'lucide-react';
+import { ArrowLeft, Coins, Timer, Trophy, CircleDot, Gamepad2 } from 'lucide-react';
 
 export function HowItWorksScreen({ onBack }: { onBack: () => void }) {
   return (
@@ -15,19 +15,30 @@ export function HowItWorksScreen({ onBack }: { onBack: () => void }) {
 
       <ol className="info-steps">
         <li>
+          <span className="info-step-icon"><Gamepad2 size={18} /></span>
+          <div>
+            <strong>Play Game</strong>
+            <p>
+              Open Play Game, pick a market (Shri Ganesh, Faridabad, Ghaziabad, Gali, Desawar), then use Open
+              Game, Jantari, or Crossing to place bets.
+            </p>
+          </div>
+        </li>
+        <li>
           <span className="info-step-icon"><CircleDot size={18} /></span>
           <div>
-            <strong>Choose a market</strong>
-            <p>Open Play Game or Play Harf, then pick Shri Ganesh, Faridabad, Ghaziabad, Gali, or Desawar.</p>
+            <strong>Play Harf</strong>
+            <p>
+              Play Harf is its own game (not a market list). Enter amounts on digits 0–9 on the wheel and tap{' '}
+              <b>Bet Ok</b>.
+            </p>
           </div>
         </li>
         <li>
           <span className="info-step-icon"><Coins size={18} /></span>
           <div>
             <strong>Place your bet</strong>
-            <p>
-              Full play: enter amounts on any digits 0–9. Harf: pick one digit and one amount. Tap <b>Bet Ok</b>.
-            </p>
+            <p>Coins are taken from your wallet when you confirm. You can bet on multiple numbers in one go.</p>
           </div>
         </li>
         <li>
@@ -42,7 +53,7 @@ export function HowItWorksScreen({ onBack }: { onBack: () => void }) {
           <div>
             <strong>Lowest total wins</strong>
             <p>
-              The digit with the <b>least total coins bet</b> becomes the result (ties → smallest digit).
+              The number with the <b>least total coins bet</b> becomes the result (ties → smallest number).
               Winners get <b>8 coins for every 1 coin</b> staked.
             </p>
           </div>

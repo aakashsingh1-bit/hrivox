@@ -1044,3 +1044,30 @@ button:focus-visible, input:focus-visible { outline: 3px solid rgba(39, 154, 224
 .market-sub-nav button.active span {
   box-shadow: inset 0 -2px 0 #111; padding-bottom: 2px;
 }
+
+.sound-fab.inline.spacer {
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.harf-badge {
+  margin-left: 6px;
+  font-size: 10px;
+  font-weight: 800;
+  color: #b45309;
+  letter-spacing: 0.04em;
+}
+
+.market-badge {
+  margin-left: 6px;
+  font-size: 10px;
+  font-weight: 700;
+  color: #2563eb;
+  letter-spacing: 0.04em;
+}
+
+.digit-totals.extra {
+  margin-top: 8px;
+  border-top: 1px dashed #d7e2ec;
+  padding-top: 8px;
+}

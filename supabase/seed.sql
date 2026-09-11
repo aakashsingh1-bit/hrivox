@@ -89,7 +89,7 @@ ON CONFLICT (id) DO UPDATE SET
   coins = EXCLUDED.coins,
   is_admin = EXCLUDED.is_admin;
 
--- Ensure 5 games exist with next_result_at
+-- Ensure 5 market games exist with next_result_at
 INSERT INTO games (name, short_code, schedule_time, result, is_active, next_result_at)
 SELECT * FROM (VALUES
   ('Shri Ganesh', 'SG', 'Hourly', '', true, now() + interval '1 hour'),
@@ -98,7 +98,12 @@ SELECT * FROM (VALUES
   ('Gali', 'GL', 'Hourly', '', true, now() + interval '1 hour'),
   ('Desawar', 'DW', 'Hourly', '', true, now() + interval '1 hour')
 ) AS v(name, short_code, schedule_time, result, is_active, next_result_at)
-WHERE NOT EXISTS (SELECT 1 FROM games LIMIT 1);
+WHERE NOT EXISTS (SELECT 1 FROM games WHERE short_code = 'SG' LIMIT 1);
+
+-- Standalone Play Harf (separate from markets)
+INSERT INTO games (name, short_code, schedule_time, result, is_active, next_result_at)
+SELECT 'Harf', 'HF', 'Hourly', '', true, now() + interval '1 hour'
+WHERE NOT EXISTS (SELECT 1 FROM games WHERE short_code = 'HF');
 
 UPDATE games
 SET next_result_at = COALESCE(next_result_at, now() + interval '1 hour')

@@ -26,7 +26,7 @@ type Outcome = {
 type Props = {
   gameId: string;
   mode: 'full' | 'harf';
-  onBack: () => void;
+  onBack?: () => void;
 };
 
 export function PlayScreen({ gameId, mode, onBack }: Props) {
@@ -36,8 +36,6 @@ export function PlayScreen({ gameId, mode, onBack }: Props) {
 
   const [game, setGame] = useState<Game | null>(null);
   const [amounts, setAmounts] = useState<Record<number, string>>({});
-  const [harfDigit, setHarfDigit] = useState<number | null>(null);
-  const [harfAmount, setHarfAmount] = useState('');
   const [last5, setLast5] = useState<string[]>([]);
   const [toast, setToast] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -251,9 +249,7 @@ export function PlayScreen({ gameId, mode, onBack }: Props) {
   const nextMs = game?.next_result_at ? new Date(game.next_result_at).getTime() - now : 0;
   const countdown = formatCountdown(nextMs);
   const bettingClosed = nextMs > 0 && nextMs < 30000;
-  const totalFull = Object.values(amounts).reduce((s, v) => s + (Number(v) || 0), 0);
-  const totalHarf = harfDigit !== null && Number(harfAmount) > 0 ? Number(harfAmount) : 0;
-  const totalAmount = mode === 'harf' ? totalHarf : totalFull;
+  const totalAmount = Object.values(amounts).reduce((s, v) => s + (Number(v) || 0), 0);
   const last5Label = useMemo(() => (last5.length ? `${last5.join(' | ')} |` : '—'), [last5]);
 
   const updateAmount = (num: number, val: string) => {
@@ -263,7 +259,7 @@ export function PlayScreen({ gameId, mode, onBack }: Props) {
   const handleSubmit = async () => {
     if (!profile || !game) return;
     if (totalAmount === 0) {
-      notify(mode === 'harf' ? 'Select digit + amount' : 'Enter amount on at least one number');
+      notify('Enter amount on at least one number');
       return;
     }
     if (!game.is_active) {
@@ -280,17 +276,11 @@ export function PlayScreen({ gameId, mode, onBack }: Props) {
     }
 
     setSubmitting(true);
-    const bets =
-      mode === 'harf'
-        ? [{ number: harfDigit as number, amount: Number(harfAmount) }]
-        : Object.entries(amounts)
-            .filter(([, v]) => Number(v) > 0)
-            .map(([num, amt]) => ({ number: Number(num), amount: Number(amt) }));
+    const bets = Object.entries(amounts)
+      .filter(([, v]) => Number(v) > 0)
+      .map(([num, amt]) => ({ number: Number(num), amount: Number(amt) }));
 
-    const focusNumber =
-      mode === 'harf'
-        ? (harfDigit as number)
-        : bets.reduce((best, b) => (b.amount > best.amount ? b : best), bets[0]).number;
+    const focusNumber = bets.reduce((best, b) => (b.amount > best.amount ? b : best), bets[0]).number;
 
     const { error } = await supabase.rpc('place_bets', {
       p_game_id: game.id,
@@ -307,9 +297,7 @@ export function PlayScreen({ gameId, mode, onBack }: Props) {
     spinToDigit(focusNumber);
     await refreshProfile();
     setAmounts({});
-    setHarfDigit(null);
-    setHarfAmount('');
-    notify(mode === 'harf' ? `Harf ${focusNumber} placed ✓` : `Bet placed ✓`);
+    notify(mode === 'harf' ? 'Harf bet placed ✓' : 'Bet placed ✓');
     setSubmitting(false);
   };
 
@@ -360,12 +348,16 @@ export function PlayScreen({ gameId, mode, onBack }: Props) {
   return (
     <div className="play-screen play-casino">
       <div className="play-nav-row">
-        <button type="button" className="sound-fab inline" onClick={onBack} aria-label="Back">
-          <ArrowLeft size={18} />
-        </button>
+        {onBack ? (
+          <button type="button" className="sound-fab inline" onClick={onBack} aria-label="Back">
+            <ArrowLeft size={18} />
+          </button>
+        ) : (
+          <span className="sound-fab inline spacer" aria-hidden />
+        )}
         <div className="play-nav-title">
           <small>{mode === 'harf' ? 'PLAY HARF' : 'PLAY GAME'}</small>
-          <strong>{game.name}</strong>
+          <strong>{mode === 'harf' ? 'Harf' : game.name}</strong>
         </div>
         <button
           type="button"
@@ -424,52 +416,23 @@ export function PlayScreen({ gameId, mode, onBack }: Props) {
       </div>
 
       <div className="gold-lights">
-        <span className="gold-lights-inner">{mode === 'harf' ? `${game.name} · HARF` : game.name}</span>
+        <span className="gold-lights-inner">{mode === 'harf' ? 'PLAY HARF' : game.name}</span>
       </div>
 
-      {mode === 'full' ? (
-        <section className="bet-grid">
-          {Array.from({ length: 10 }, (_, n) => (
-            <label key={n} className={`${amounts[n] ? 'filled' : ''} ${sparkDigit === n ? 'spark-num' : ''}`}>
-              <em>{n}</em>
-              <input
-                value={amounts[n] || ''}
-                onChange={(e) => updateAmount(n, e.target.value)}
-                placeholder="Amount"
-                inputMode="numeric"
-                disabled={!game.is_active || bettingClosed || spinning}
-              />
-            </label>
-          ))}
-        </section>
-      ) : (
-        <section className="harf-panel">
-          <p className="harf-help">Select one digit (Harf), then enter amount</p>
-          <div className="harf-digits">
-            {Array.from({ length: 10 }, (_, n) => (
-              <button
-                key={n}
-                type="button"
-                className={`${harfDigit === n ? 'on' : ''} ${sparkDigit === n ? 'spark-num' : ''}`}
-                onClick={() => setHarfDigit(n)}
-                disabled={!game.is_active || bettingClosed || spinning}
-              >
-                {n}
-              </button>
-            ))}
-          </div>
-          <label className="harf-amount">
-            <span>Amount for digit {harfDigit ?? '—'}</span>
+      <section className="bet-grid">
+        {Array.from({ length: 10 }, (_, n) => (
+          <label key={n} className={`${amounts[n] ? 'filled' : ''} ${sparkDigit === n ? 'spark-num' : ''}`}>
+            <em>{n}</em>
             <input
-              value={harfAmount}
-              onChange={(e) => setHarfAmount(e.target.value.replace(/[^0-9]/g, '').slice(0, 5))}
+              value={amounts[n] || ''}
+              onChange={(e) => updateAmount(n, e.target.value)}
               placeholder="Amount"
               inputMode="numeric"
-              disabled={harfDigit === null || !game.is_active || bettingClosed || spinning}
+              disabled={!game.is_active || bettingClosed || spinning}
             />
           </label>
-        </section>
-      )}
+        ))}
+      </section>
 
       <div className="bet-row">
         <button type="button" className="pill-red" disabled>

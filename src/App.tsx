@@ -15,7 +15,8 @@ import { SplashScreen } from '@/screens/SplashScreen';
 import { AppShell, type Tab } from '@/components/AppShell';
 import { shouldShowSplash } from '@/lib/prefs';
 import { playNav } from '@/lib/sounds';
-import { useCallback, useState } from 'react';
+import { HARF_SHORT_CODE, supabase } from '@/lib/supabase';
+import { useCallback, useEffect, useState } from 'react';
 
 function AppContent() {
   const { profile, loading } = useAuth();
@@ -23,9 +24,22 @@ function AppContent() {
   const [activeTab, setActiveTab] = useState<Tab>('home');
   const [playGameId, setPlayGameId] = useState<string | null>(null);
   const [harfGameId, setHarfGameId] = useState<string | null>(null);
+  const [harfReady, setHarfReady] = useState(false);
   const [morePage, setMorePage] = useState<MorePage>('menu');
 
   const finishSplash = useCallback(() => setSplashDone(true), []);
+
+  useEffect(() => {
+    void (async () => {
+      const { data } = await supabase
+        .from('games')
+        .select('id')
+        .eq('short_code', HARF_SHORT_CODE)
+        .maybeSingle();
+      setHarfGameId(data?.id ?? null);
+      setHarfReady(true);
+    })();
+  }, []);
 
   if (!splashDone) {
     return <SplashScreen onDone={finishSplash} />;
@@ -55,12 +69,12 @@ function AppContent() {
     playNav();
     setActiveTab(tab);
     setPlayGameId(null);
-    setHarfGameId(null);
     setMorePage('menu');
   };
 
   const shellTab = activeTab === 'admin' ? 'more' : activeTab;
-  const hideNav = Boolean(activeTab === 'play' && playGameId) || Boolean(activeTab === 'half' && harfGameId);
+  // Hide main nav only inside Play Game market detail (Open/Jantari/Crossing has its own tabs)
+  const hideNav = Boolean(activeTab === 'play' && playGameId);
 
   return (
     <AppShell activeTab={shellTab} onTabChange={onTabChange} hideNav={hideNav}>
@@ -69,13 +83,19 @@ function AppContent() {
         (playGameId ? (
           <MarketPlayScreen gameId={playGameId} onBack={() => setPlayGameId(null)} />
         ) : (
-          <GamesListScreen mode="full" onOpenGame={setPlayGameId} />
+          <GamesListScreen onOpenGame={setPlayGameId} />
         ))}
       {activeTab === 'half' &&
         (harfGameId ? (
-          <PlayScreen gameId={harfGameId} mode="harf" onBack={() => setHarfGameId(null)} />
+          <PlayScreen gameId={harfGameId} mode="harf" />
         ) : (
-          <GamesListScreen mode="harf" onOpenGame={setHarfGameId} />
+          <div className="play-screen play-casino">
+            <p className="empty-state" style={{ color: '#ccc', padding: 24 }}>
+              {harfReady
+                ? 'Play Harf is not set up yet. Ask admin to run the Harf game migration (short_code HF).'
+                : 'Loading Play Harf...'}
+            </p>
+          </div>
         ))}
       {activeTab === 'account' && (
         <AccountScreen onNavigate={onTabChange} onOpenSettings={() => {
