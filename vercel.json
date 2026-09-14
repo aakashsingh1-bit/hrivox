@@ -1,4 +1,2 @@
 {
-  "rewrites": [{ "source": "/((?!api/).*)", "destination": "/index.html" }],
-  "crons": [{ "path": "/api/scrape-results", "schedule": "* * * * *" }]
-}
+  "rewrites": [{ "source": "/((?!api/).*)", "destination": "/index.html" }]}
