@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState, type Dispatch, type SetStateActio
 import { createPortal } from 'react-dom';
 import { ArrowLeft, Coins, FolderOpen, Frown, PartyPopper } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
-import { formatCountdown, supabase, type Bet, type Game } from '@/lib/supabase';
+import { supabase, type Bet, type Game } from '@/lib/supabase';
 import { playBetOk, playLose, playTap, playWin } from '@/lib/sounds';
 import {
   assertBetAmountsAllowed,
@@ -11,7 +11,6 @@ import {
   JANTARI_DIGITS,
 } from '@/lib/crossing';
 import {
-  kindLabel,
   loadGame,
   loadMyGameBets,
   requestMarketResults,
@@ -36,9 +35,7 @@ export function MarketPlayScreen({ gameId, onBack }: Props) {
   const [busy, setBusy] = useState(false);
   const [toast, setToast] = useState('');
   const [now, setNow] = useState(Date.now());
-  const [myBets, setMyBets] = useState<Bet[]>([]);
   const [outcome, setOutcome] = useState<Outcome | null>(null);
-  const [waitingHint, setWaitingHint] = useState(false);
 
   const [openNum, setOpenNum] = useState('');
   const [openAmt, setOpenAmt] = useState('');
@@ -61,7 +58,6 @@ export function MarketPlayScreen({ gameId, onBack }: Props) {
     }
     if (profile?.id) {
       const bets = await loadMyGameBets(profile.id, gameId);
-      setMyBets(bets);
       return { game: g, bets };
     }
     return { game: g, bets: [] as Bet[] };
@@ -96,7 +92,6 @@ export function MarketPlayScreen({ gameId, onBack }: Props) {
         const summary = summarizeRoundOutcome(related, digit);
         if (!summary) return;
         setOutcome(summary);
-        setWaitingHint(false);
         if (summary.type === 'won') playWin();
         else playLose();
         await refreshProfile();
@@ -115,14 +110,6 @@ export function MarketPlayScreen({ gameId, onBack }: Props) {
   };
 
   const finalHour = isFinalHour(game?.next_result_at, now);
-  const nextMs = game?.next_result_at ? new Date(game.next_result_at).getTime() - now : 0;
-  const countdown = formatCountdown(nextMs);
-
-  const pendingBets = useMemo(() => myBets.filter((b) => b.status === 'pending'), [myBets]);
-  const roundBets = useMemo(() => {
-    if (pendingBets.length) return pendingBets.slice(0, 30);
-    return myBets.slice(0, 12);
-  }, [pendingBets, myBets]);
 
   const totalAmount = useMemo(() => {
     const slipTotal = slip.reduce((s, i) => s + i.amount, 0);
@@ -245,8 +232,7 @@ export function MarketPlayScreen({ gameId, onBack }: Props) {
     setOpenDigits({});
     setCloseDigits({});
     setCrossRows([]);
-    setWaitingHint(true);
-    notify('Bet placed ✓ Waiting for result…');
+    notify('Bet placed ✓');
     await refreshLive();
   };
 
@@ -334,45 +320,7 @@ export function MarketPlayScreen({ gameId, onBack }: Props) {
         </span>
       </header>
 
-      <div className="mp-stat-row">
-        <div>
-          <label>Wallet</label>
-          <b>{profile?.coins ?? 0}</b>
-        </div>
-        <div>
-          <label>Last result</label>
-          <b className={game.result ? 'mp-result-red' : ''}>{game.result || '—'}</b>
-        </div>
-        <div>
-          <label>Next result</label>
-          <b>{countdown}</b>
-        </div>
-      </div>
-
       {finalHour && <p className="final-hour-banner">Final hour: max Rs 200 per number</p>}
-      {waitingHint && pendingBets.length > 0 && (
-        <p className="waiting-result-banner">
-          Waiting for result… It will show here and on the Play Game list in red.
-        </p>
-      )}
-
-      {roundBets.length > 0 && (
-        <div className="mp-round-bets">
-          <div className="mp-round-head">
-            <strong>Your bets</strong>
-            <span>{pendingBets.length ? 'Pending' : 'Recent'}</span>
-          </div>
-          {roundBets.map((b) => (
-            <div key={b.id} className="mp-round-row">
-              <span>
-                {kindLabel(b.bet_kind)} · {String(b.selected_number).padStart(2, '0')}
-              </span>
-              <span>{b.amount}</span>
-              <em className={`st-${b.status}`}>{b.status}</em>
-            </div>
-          ))}
-        </div>
-      )}
 
       <div className="market-play-body">
         {tab === 'open' && (
