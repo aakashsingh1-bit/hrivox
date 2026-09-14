@@ -1071,3 +1071,131 @@ button:focus-visible, input:focus-visible { outline: 3px solid rgba(39, 154, 224
   border-top: 1px dashed #d7e2ec;
   padding-top: 8px;
 }
+
+/* V2 */
+.final-hour-banner {
+  margin: 0;
+  padding: 8px 12px;
+  background: #fff3cd;
+  color: #7a5b00;
+  font: 600 12px 'Space Grotesk', sans-serif;
+  text-align: center;
+}
+.final-hour-banner.casino {
+  background: rgba(244, 184, 49, 0.2);
+  color: #f4d27a;
+}
+
+.market-green-row.open-bet { color: #2d8f4e; }
+.market-green-row.result-out { color: #d32f2f; }
+.market-green-row.off { color: #8a9a8e; }
+
+.jantari-v2 { display: flex; flex-direction: column; gap: 14px; padding: 8px 0 16px; }
+.jantari-kind-block { background: #fff; border: 1px solid #d7e2ec; }
+.jantari-kind-label {
+  padding: 8px 10px; font: 700 13px 'Space Grotesk', sans-serif;
+  background: #eef5fb; color: #1a3a55; border-bottom: 1px solid #d7e2ec;
+}
+.jantari-kind-nums, .jantari-kind-inputs {
+  display: grid; grid-template-columns: repeat(10, 1fr);
+}
+.jantari-kind-nums span {
+  text-align: center; padding: 6px 2px; font: 700 12px 'Space Grotesk', sans-serif;
+  background: #cfe6f7; border-right: 1px solid #b7d4ea; border-bottom: 1px solid #b7d4ea;
+}
+.jantari-kind-inputs input {
+  width: 100%; border: 0; border-right: 1px solid #d7e2ec; border-bottom: 1px solid #d7e2ec;
+  padding: 10px 2px; text-align: center; font-size: 12px; min-width: 0;
+}
+
+.cross-preview {
+  margin: 8px 0 0; font-size: 12px; color: #3b4a5c; font-weight: 600;
+}
+
+.invite-card {
+  margin: 12px 0; padding: 20px 16px; background: #fff; border: 1px solid #e5eaf0;
+  border-radius: 12px; display: flex; flex-direction: column; align-items: center; gap: 10px;
+  text-align: center;
+}
+.invite-card strong { font-size: 18px; }
+.invite-card p { margin: 0; color: #5a6778; font-size: 13px; line-height: 1.45; }
+.invite-code {
+  font: 800 22px 'Space Grotesk', monospace; letter-spacing: 0.12em;
+  padding: 10px 18px; background: #f3f7fb; border-radius: 8px;
+}
+.invite-actions { display: flex; gap: 8px; width: 100%; }
+.invite-actions button {
+  flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px;
+  border: 1px solid #d0d7e2; background: #fff; padding: 10px; border-radius: 8px;
+  font-weight: 700; font-size: 13px;
+}
+.invite-actions button.primary { background: #238fd2; color: #fff; border-color: #238fd2; }
+.invite-meta { color: #8a94a3; font-size: 12px; }
+
+.deposit-btn {
+  background: #238fd2 !important; color: #fff !important; border: 0 !important;
+  padding: 6px 10px !important; border-radius: 6px; font-size: 12px; font-weight: 700;
+}
+
+.mp-stat-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  padding: 8px 10px;
+  background: #eef5fb;
+  border-bottom: 1px solid #d7e2ec;
+}
+.mp-stat-row label {
+  display: block;
+  font-size: 10px;
+  color: #6e7a8d;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+.mp-stat-row b { font-size: 15px; font-weight: 800; color: #123; }
+.mp-result-red { color: #d32f2f !important; }
+
+.waiting-result-banner {
+  margin: 0;
+  padding: 8px 12px;
+  background: #e3f2fd;
+  color: #0d47a1;
+  font: 600 12px 'Space Grotesk', sans-serif;
+  text-align: center;
+}
+
+.mp-round-bets {
+  margin: 0;
+  max-height: 140px;
+  overflow: auto;
+  border-bottom: 1px solid #d7e2ec;
+  background: #fff;
+}
+.mp-round-head {
+  display: flex;
+  justify-content: space-between;
+  padding: 6px 12px;
+  font-size: 12px;
+  background: #f5f8fb;
+  color: #5a6778;
+}
+.mp-round-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 8px;
+  padding: 6px 12px;
+  font-size: 12px;
+  border-top: 1px solid #eef2f6;
+}
+.mp-round-row .st-pending { color: #1565c0; font-style: normal; font-weight: 700; }
+.mp-round-row .st-won { color: #2e7d32; font-style: normal; font-weight: 700; }
+.mp-round-row .st-lost { color: #c62828; font-style: normal; font-weight: 700; }
+
+.market-list-hint {
+  margin: 0;
+  padding: 8px 14px;
+  font-size: 11px;
+  color: #5a6778;
+  background: #f7fafc;
+  border-bottom: 1px solid #eef2f6;
+}

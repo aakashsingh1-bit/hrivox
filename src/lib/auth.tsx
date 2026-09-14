@@ -8,7 +8,13 @@ type AuthContextType = {
   profile: Profile | null;
   loading: boolean;
   setupError: string | null;
-  signUp: (email: string, password: string, displayName: string, phone: string) => Promise<{ error: string | null }>;
+  signUp: (
+    email: string,
+    password: string,
+    displayName: string,
+    phone: string,
+    referralCode?: string,
+  ) => Promise<{ error: string | null }>;
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
@@ -50,6 +56,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         phone: meta.phone || '',
         coins: 1000,
         is_admin: false,
+        referral_code: uid.replace(/-/g, '').slice(0, 8).toUpperCase(),
       })
       .select('*')
       .maybeSingle();
@@ -57,6 +64,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (/profiles|schema cache|PGRST205/i.test(insertErr.message)) setSetupError(SETUP_MSG);
       setProfile(null);
       return;
+    }
+    if (meta.referral_code) {
+      try {
+        await supabase.rpc('apply_referral_code', { p_code: String(meta.referral_code) });
+      } catch {
+        /* ignore */
+      }
     }
     setProfile(created as Profile);
   };
@@ -88,11 +102,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => sub.subscription.unsubscribe();
   }, []);
 
-  const signUp = async (email: string, password: string, displayName: string, phone: string) => {
+  const signUp = async (
+    email: string,
+    password: string,
+    displayName: string,
+    phone: string,
+    referralCode?: string,
+  ) => {
     const { error } = await supabase.auth.signUp({
       email,
       password,
-      options: { data: { display_name: displayName, phone } },
+      options: {
+        data: {
+          display_name: displayName,
+          phone,
+          referral_code: referralCode || '',
+        },
+      },
     });
     if (error) return { error: error.message };
     return { error: null };

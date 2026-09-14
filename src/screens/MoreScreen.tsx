@@ -5,6 +5,7 @@ import {
   ChevronRight,
   CircleHelp,
   Clock3,
+  Gift,
   Info,
   ListOrdered,
   LogOut,
@@ -14,7 +15,7 @@ import {
 } from 'lucide-react';
 import type { Tab } from '@/components/AppShell';
 
-export type MorePage = 'menu' | 'how' | 'timings' | 'results' | 'settings';
+export type MorePage = 'menu' | 'how' | 'timings' | 'results' | 'settings' | 'invite';
 
 export function MoreScreen({
   onNavigate,
@@ -27,20 +28,26 @@ export function MoreScreen({
 
   const items: { title: string; subtitle: string; Icon: typeof CircleHelp; action: () => void }[] = [
     {
+      title: 'Invite & Earn',
+      subtitle: '100 coins when friend deposits Rs 2,000+',
+      Icon: Gift,
+      action: () => onOpenPage('invite'),
+    },
+    {
       title: 'How it works',
-      subtitle: 'Pick 0–9, wait 1 hour, lowest-bet number wins (1→8)',
+      subtitle: 'Markets, Harf, and payout rules',
       Icon: CircleHelp,
       action: () => onOpenPage('how'),
     },
     {
       title: 'Game timings',
-      subtitle: 'Live countdowns for all 5 markets',
+      subtitle: 'Live countdowns for markets + Harf',
       Icon: Clock3,
       action: () => onOpenPage('timings'),
     },
     {
       title: 'Previous results',
-      subtitle: 'Full published result archive',
+      subtitle: 'Last 1 month of published results',
       Icon: ListOrdered,
       action: () => onOpenPage('results'),
     },
@@ -112,8 +119,8 @@ export function MoreScreen({
         <div>
           <strong>Result rule</strong>
           <p>
-            Every hour the number with the least total coins bet becomes the result. Winning bets receive 8 coins
-            for each 1 coin staked. Admin can override or correct results.
+            Market results come from the official published source (admin can override). Play Harf uses
+            lowest-total digit. Winners receive 8 coins per 1 coin staked.
           </p>
         </div>
       </div>

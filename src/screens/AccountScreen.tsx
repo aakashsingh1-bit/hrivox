@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react';
 import { useAuth } from '@/lib/auth';
 import { supabase, openAddMoneyWhatsApp, type Bet, type Game } from '@/lib/supabase';
+import { kindLabel } from '@/lib/results';
 import { ChevronRight, Coins, ListOrdered, CircleHelp, Settings, MessageCircle, LogOut } from 'lucide-react';
 import type { Tab } from '@/components/AppShell';
 import { playTap } from '@/lib/sounds';
+import { useEffect, useState } from 'react';
 
 export function AccountScreen({
   onNavigate,
@@ -20,7 +21,12 @@ export function AccountScreen({
     loadBets();
     loadGames();
     refreshProfile();
-  }, []);
+    const poll = window.setInterval(() => {
+      void loadBets();
+      void refreshProfile();
+    }, 5000);
+    return () => window.clearInterval(poll);
+  }, [profile?.id]);
 
   const loadBets = async () => {
     if (!profile) return;
@@ -116,7 +122,7 @@ export function AccountScreen({
               </span>
               <div>
                 <strong>
-                  {gameName(bet.game_id)} — #{bet.selected_number}
+                  {gameName(bet.game_id)} — {kindLabel(bet.bet_kind)} #{bet.selected_number}
                 </strong>
                 <small>
                   {bet.amount} coins · {bet.status} · {new Date(bet.created_at).toLocaleString()}

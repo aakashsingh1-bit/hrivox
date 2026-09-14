@@ -17,6 +17,8 @@ export type Profile = {
   phone: string;
   coins: number;
   is_admin: boolean;
+  referral_code?: string | null;
+  referred_by?: string | null;
   created_at: string;
 };
 
@@ -29,6 +31,9 @@ export type Game = {
   is_active: boolean;
   result_published_at: string | null;
   next_result_at: string | null;
+  external_name?: string | null;
+  last_scraped_result?: string | null;
+  last_scraped_at?: string | null;
   created_at: string;
 };
 
@@ -44,6 +49,7 @@ export type Bet = {
   amount: number;
   status: string;
   payout: number;
+  bet_kind?: string | null;
   created_at: string;
 };
 

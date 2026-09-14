@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useAuth } from '@/lib/auth';
 import { HARF_SHORT_CODE, supabase, type Game } from '@/lib/supabase';
+import { requestMarketResults } from '@/lib/results';
 import { Coins } from 'lucide-react';
 
 type Props = {
@@ -16,24 +17,52 @@ function formatRange(game: Game) {
   return '(Hourly)';
 }
 
+function isBettingOpen(game: Game, now: number) {
+  if (!game.is_active) return false;
+  if (!game.next_result_at) return game.is_active;
+  const ms = new Date(game.next_result_at).getTime() - now;
+  return ms > 30000;
+}
+
 export function GamesListScreen({ onOpenGame }: Props) {
   const { profile } = useAuth();
   const [games, setGames] = useState<Game[]>([]);
+  const [now, setNow] = useState(Date.now());
+
+  const loadGames = useCallback(async () => {
+    try {
+      await supabase.rpc('try_settle_due');
+    } catch {
+      /* ignore */
+    }
+    const { data } = await supabase.from('games').select('*').order('created_at');
+    if (data) {
+      const list = (data as Game[]).filter((g) => g.short_code !== HARF_SHORT_CODE);
+      setGames(list);
+      const anyDue = list.some(
+        (g) => g.next_result_at && new Date(g.next_result_at).getTime() <= Date.now() + 15000,
+      );
+      if (anyDue) void requestMarketResults();
+    }
+  }, []);
 
   useEffect(() => {
-    void (async () => {
-      try {
-        await supabase.rpc('try_settle_due');
-      } catch {
-        /* ignore */
-      }
-      const { data } = await supabase.from('games').select('*').order('created_at');
-      if (data) {
-        // Markets only — Play Harf is a separate standalone game
-        setGames((data as Game[]).filter((g) => g.short_code !== HARF_SHORT_CODE));
-      }
-    })();
-  }, []);
+    void loadGames();
+    const tick = window.setInterval(() => setNow(Date.now()), 1000);
+    const reload = window.setInterval(() => {
+      void loadGames();
+    }, 5000);
+    const onFocus = () => void loadGames();
+    window.addEventListener('focus', onFocus);
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') onFocus();
+    });
+    return () => {
+      window.clearInterval(tick);
+      window.clearInterval(reload);
+      window.removeEventListener('focus', onFocus);
+    };
+  }, [loadGames]);
 
   const userCode = profile?.id ? profile.id.slice(0, 8).toUpperCase() : 'USER';
 
@@ -52,21 +81,32 @@ export function GamesListScreen({ onOpenGame }: Props) {
         </div>
       </header>
 
+      <p className="market-list-hint">
+        Green = betting open. Red = result out (digit shown). After you bet, stay on the market screen to see
+        win/loss.
+      </p>
+
       <div className="market-green-list">
-        {games.map((g) => (
-          <button
-            key={g.id}
-            type="button"
-            className={`market-green-row ${g.is_active ? '' : 'off'}`}
-            onClick={() => g.is_active && onOpenGame(g.id)}
-            disabled={!g.is_active}
-          >
-            <span>
-              {g.name.toUpperCase()} {formatRange(g)}
-              {!g.is_active ? ' · OFF' : ''}
-            </span>
-          </button>
-        ))}
+        {games.map((g) => {
+          const open = isBettingOpen(g, now);
+          const resultShown = Boolean(g.result) && !open;
+          const rowClass = !g.is_active ? 'off' : resultShown || !open ? 'result-out' : 'open-bet';
+          return (
+            <button
+              key={g.id}
+              type="button"
+              className={`market-green-row ${rowClass}`}
+              onClick={() => open && onOpenGame(g.id)}
+              disabled={!open}
+            >
+              <span>
+                {g.name.toUpperCase()} {formatRange(g)}
+                {g.result ? ` · ${g.result}` : ''}
+                {!g.is_active ? ' · OFF' : !open ? ' · CLOSED' : ''}
+              </span>
+            </button>
+          );
+        })}
         {games.length === 0 && <p className="empty-state">No markets loaded.</p>}
       </div>
     </div>

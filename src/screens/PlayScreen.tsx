@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { useAuth } from '@/lib/auth';
 import { supabase, formatCountdown, type Bet, type Game, type ResultHistory } from '@/lib/supabase';
 import { ArrowLeft, Volume2, VolumeX, Coins, PartyPopper, Frown } from 'lucide-react';
+import { assertBetAmountsAllowed, isFinalHour } from '@/lib/crossing';
 import { playBetOk, playLose, playSpinStart, playTick, playWin, unlockAudio } from '@/lib/sounds';
 import { isMuted, setMuted as persistMuted } from '@/lib/prefs';
 
@@ -274,6 +275,17 @@ export function PlayScreen({ gameId, mode, onBack }: Props) {
       notify('Insufficient coins');
       return;
     }
+    const capErr = assertBetAmountsAllowed(
+      Object.entries(amounts)
+        .filter(([, v]) => Number(v) > 0)
+        .map(([, v]) => Number(v)),
+      game.next_result_at,
+      now,
+    );
+    if (capErr) {
+      notify(capErr);
+      return;
+    }
 
     setSubmitting(true);
     const bets = Object.entries(amounts)
@@ -418,6 +430,10 @@ export function PlayScreen({ gameId, mode, onBack }: Props) {
       <div className="gold-lights">
         <span className="gold-lights-inner">{mode === 'harf' ? 'PLAY HARF' : game.name}</span>
       </div>
+
+      {isFinalHour(game.next_result_at, now) && (
+        <p className="final-hour-banner casino">Final hour: max Rs 200 per number</p>
+      )}
 
       <section className="bet-grid">
         {Array.from({ length: 10 }, (_, n) => (

@@ -1,4 +1,4 @@
-import { ArrowLeft, Coins, Timer, Trophy, CircleDot, Gamepad2 } from 'lucide-react';
+import { ArrowLeft, Timer, Trophy, CircleDot, Gamepad2, ListOrdered } from 'lucide-react';
 
 export function HowItWorksScreen({ onBack }: { onBack: () => void }) {
   return (
@@ -19,8 +19,8 @@ export function HowItWorksScreen({ onBack }: { onBack: () => void }) {
           <div>
             <strong>Play Game</strong>
             <p>
-              Open Play Game, pick a market (Shri Ganesh, Faridabad, Ghaziabad, Gali, Desawar), then use Open
-              Game, Jantari, or Crossing to place bets.
+              Pick a market, then Open Game / Jantari (Dhai Open + Harup Close) / Crossing (up to 8 digits). Tap
+              Continue. Max <b>Rs 200</b> per number in the final hour.
             </p>
           </div>
         </li>
@@ -28,33 +28,37 @@ export function HowItWorksScreen({ onBack }: { onBack: () => void }) {
           <span className="info-step-icon"><CircleDot size={18} /></span>
           <div>
             <strong>Play Harf</strong>
-            <p>
-              Play Harf is its own game (not a market list). Enter amounts on digits 0–9 on the wheel and tap{' '}
-              <b>Bet Ok</b>.
-            </p>
-          </div>
-        </li>
-        <li>
-          <span className="info-step-icon"><Coins size={18} /></span>
-          <div>
-            <strong>Place your bet</strong>
-            <p>Coins are taken from your wallet when you confirm. You can bet on multiple numbers in one go.</p>
+            <p>Separate wheel game (0–9). Lowest total bet wins that round.</p>
           </div>
         </li>
         <li>
           <span className="info-step-icon"><Timer size={18} /></span>
           <div>
-            <strong>Wait for the hour</strong>
-            <p>Each game settles about every 1 hour. Betting closes in the last 30 seconds of the round.</p>
+            <strong>Where to see the result</strong>
+            <p>
+              After Continue, stay on the market screen: Wallet / Last result / Next countdown and your bet list
+              update live. When the official result is published you get a win/lose popup. The Play Game list
+              shows the digit in <b>red</b>. Also: Home, Account history, More → Previous results (last 1 month).
+            </p>
+          </div>
+        </li>
+        <li>
+          <span className="info-step-icon"><ListOrdered size={18} /></span>
+          <div>
+            <strong>Market results</strong>
+            <p>
+              Markets use the official published result (automated fetch + admin override). Open bets match the
+              tens digit; Close match the units; Jodi matches the full number.
+            </p>
           </div>
         </li>
         <li>
           <span className="info-step-icon"><Trophy size={18} /></span>
           <div>
-            <strong>Lowest total wins</strong>
+            <strong>Payout</strong>
             <p>
-              The number with the <b>least total coins bet</b> becomes the result (ties → smallest number).
-              Winners get <b>8 coins for every 1 coin</b> staked.
+              Winners get <b>8 coins for every 1 coin</b> staked. Invite & Earn: 100 coins when a referred user
+              deposits Rs 2,000+.
             </p>
           </div>
         </li>
@@ -62,7 +66,7 @@ export function HowItWorksScreen({ onBack }: { onBack: () => void }) {
 
       <div className="info-callout">
         <strong>Example</strong>
-        <p>You bet 10 coins on 7. If 7 is the result, you receive 80 coins payout (net +70 after stake).</p>
+        <p>You bet 10 coins on jodi 57. If result is 57, you receive 80 coins payout.</p>
       </div>
     </div>
   );

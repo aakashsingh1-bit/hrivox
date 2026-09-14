@@ -2,6 +2,14 @@ import { useState } from 'react';
 import { useAuth } from '@/lib/auth';
 import { Eye, EyeOff } from 'lucide-react';
 
+function readRefFromUrl() {
+  try {
+    return new URLSearchParams(window.location.search).get('ref') || '';
+  } catch {
+    return '';
+  }
+}
+
 export function AuthScreen() {
   const { signIn, signUp, setupError } = useAuth();
   const [mode, setMode] = useState<'login' | 'signup'>('login');
@@ -9,6 +17,7 @@ export function AuthScreen() {
   const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [phone, setPhone] = useState('');
+  const [referralCode, setReferralCode] = useState(readRefFromUrl);
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
@@ -19,7 +28,7 @@ export function AuthScreen() {
     setBusy(true);
 
     if (mode === 'signup') {
-      const { error } = await signUp(email, password, displayName, phone);
+      const { error } = await signUp(email, password, displayName, phone, referralCode.trim());
       if (error) setError(error);
       else {
         setError('Account created! Please login now.');
@@ -77,6 +86,16 @@ export function AuthScreen() {
                   onChange={(e) => setPhone(e.target.value)}
                   placeholder="Mobile number"
                   autoComplete="tel"
+                />
+              </label>
+              <label className="auth-field">
+                <span>Invite code (optional)</span>
+                <input
+                  type="text"
+                  value={referralCode}
+                  onChange={(e) => setReferralCode(e.target.value.toUpperCase())}
+                  placeholder="Friend's code"
+                  autoComplete="off"
                 />
               </label>
             </>

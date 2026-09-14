@@ -1,11 +1,27 @@
-import { useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, Coins, FolderOpen } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from 'react';
+import { createPortal } from 'react-dom';
+import { ArrowLeft, Coins, FolderOpen, Frown, PartyPopper } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
-import { supabase, type Game } from '@/lib/supabase';
-import { playBetOk, playTap } from '@/lib/sounds';
+import { formatCountdown, supabase, type Bet, type Game } from '@/lib/supabase';
+import { playBetOk, playLose, playTap, playWin } from '@/lib/sounds';
+import {
+  assertBetAmountsAllowed,
+  expandCrossing,
+  isFinalHour,
+  JANTARI_DIGITS,
+} from '@/lib/crossing';
+import {
+  kindLabel,
+  loadGame,
+  loadMyGameBets,
+  requestMarketResults,
+  summarizeRoundOutcome,
+} from '@/lib/results';
 
 type SubTab = 'open' | 'jantari' | 'crossing';
-type SlipItem = { key: string; label: string; number: number; amount: number };
+type SlipItem = { key: string; label: string; number: number; amount: number; kind?: string };
+type BetPayload = { number: number; amount: number; kind?: string };
+type Outcome = { type: 'won' | 'lost'; digit: number; stake: number; payout: number };
 
 type Props = {
   gameId: string;
@@ -19,41 +35,104 @@ export function MarketPlayScreen({ gameId, onBack }: Props) {
   const [slip, setSlip] = useState<SlipItem[]>([]);
   const [busy, setBusy] = useState(false);
   const [toast, setToast] = useState('');
+  const [now, setNow] = useState(Date.now());
+  const [myBets, setMyBets] = useState<Bet[]>([]);
+  const [outcome, setOutcome] = useState<Outcome | null>(null);
+  const [waitingHint, setWaitingHint] = useState(false);
 
-  // Open Game
   const [openNum, setOpenNum] = useState('');
   const [openAmt, setOpenAmt] = useState('');
-
-  // Jantari
-  const [jantari, setJantari] = useState<Record<number, string>>({});
-
-  // Crossing
+  const [openDigits, setOpenDigits] = useState<Record<number, string>>({});
+  const [closeDigits, setCloseDigits] = useState<Record<number, string>>({});
   const [jodiCut, setJodiCut] = useState(false);
-  const [crossA, setCrossA] = useState('');
-  const [crossB, setCrossB] = useState('');
+  const [crossBase, setCrossBase] = useState('');
   const [crossAmt, setCrossAmt] = useState('');
   const [crossRows, setCrossRows] = useState<{ label: string; number: number; amount: number }[]>([]);
 
+  const lastPublishedRef = useRef('');
+  const announcedRef = useRef('');
+  const gameRef = useRef<Game | null>(null);
+
+  const refreshLive = async () => {
+    const g = await loadGame(gameId);
+    if (g) {
+      setGame(g);
+      gameRef.current = g;
+    }
+    if (profile?.id) {
+      const bets = await loadMyGameBets(profile.id, gameId);
+      setMyBets(bets);
+      return { game: g, bets };
+    }
+    return { game: g, bets: [] as Bet[] };
+  };
+
   useEffect(() => {
-    void (async () => {
-      const { data } = await supabase.from('games').select('*').eq('id', gameId).maybeSingle();
-      if (data) setGame(data as Game);
-    })();
-  }, [gameId]);
+    void refreshLive().then(({ game: g }) => {
+      if (g?.result_published_at) lastPublishedRef.current = g.result_published_at;
+    });
+    const tick = window.setInterval(() => setNow(Date.now()), 1000);
+    const poll = window.setInterval(() => {
+      void (async () => {
+        const g0 = gameRef.current;
+        const due =
+          g0?.next_result_at && new Date(g0.next_result_at).getTime() <= Date.now() + 15000;
+        if (due) await requestMarketResults();
+        const { game: g, bets } = await refreshLive();
+        if (!g?.result_published_at) return;
+        const pub = g.result_published_at;
+        if (pub === lastPublishedRef.current) return;
+        lastPublishedRef.current = pub;
+        const digit = Number(g.result);
+        if (Number.isNaN(digit)) return;
+        const related = bets.filter(
+          (b) =>
+            (b.status === 'won' || b.status === 'lost') &&
+            new Date(b.created_at).getTime() > Date.now() - 3 * 60 * 60 * 1000,
+        );
+        if (!related.length) return;
+        if (announcedRef.current === pub) return;
+        announcedRef.current = pub;
+        const summary = summarizeRoundOutcome(related, digit);
+        if (!summary) return;
+        setOutcome(summary);
+        setWaitingHint(false);
+        if (summary.type === 'won') playWin();
+        else playLose();
+        await refreshProfile();
+      })();
+    }, 4000);
+    return () => {
+      window.clearInterval(tick);
+      window.clearInterval(poll);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gameId, profile?.id]);
 
   const notify = (msg: string) => {
     setToast(msg);
-    window.setTimeout(() => setToast(''), 2500);
+    window.setTimeout(() => setToast(''), 3200);
   };
+
+  const finalHour = isFinalHour(game?.next_result_at, now);
+  const nextMs = game?.next_result_at ? new Date(game.next_result_at).getTime() - now : 0;
+  const countdown = formatCountdown(nextMs);
+
+  const pendingBets = useMemo(() => myBets.filter((b) => b.status === 'pending'), [myBets]);
+  const roundBets = useMemo(() => {
+    if (pendingBets.length) return pendingBets.slice(0, 30);
+    return myBets.slice(0, 12);
+  }, [pendingBets, myBets]);
 
   const totalAmount = useMemo(() => {
     const slipTotal = slip.reduce((s, i) => s + i.amount, 0);
-    const jantariTotal = Object.values(jantari).reduce((s, v) => s + (Number(v) || 0), 0);
+    const openTotal = Object.values(openDigits).reduce((s, v) => s + (Number(v) || 0), 0);
+    const closeTotal = Object.values(closeDigits).reduce((s, v) => s + (Number(v) || 0), 0);
     const crossTotal = crossRows.reduce((s, r) => s + r.amount, 0);
     if (tab === 'open') return slipTotal;
-    if (tab === 'jantari') return jantariTotal;
+    if (tab === 'jantari') return openTotal + closeTotal;
     return crossTotal;
-  }, [slip, jantari, crossRows, tab]);
+  }, [slip, openDigits, closeDigits, crossRows, tab]);
 
   const addOpen = () => {
     playTap();
@@ -67,9 +146,13 @@ export function MarketPlayScreen({ gameId, onBack }: Props) {
       notify('Enter amount');
       return;
     }
+    if (finalHour && a > 200) {
+      notify('Max bet Rs 200 in final hour');
+      return;
+    }
     setSlip((cur) => [
       ...cur,
-      { key: `${Date.now()}-${n}`, label: String(n).padStart(2, '0'), number: n, amount: a },
+      { key: `${Date.now()}-${n}`, label: String(n).padStart(2, '0'), number: n, amount: a, kind: 'jodi' },
     ]);
     setOpenNum('');
     setOpenAmt('');
@@ -77,38 +160,52 @@ export function MarketPlayScreen({ gameId, onBack }: Props) {
 
   const addCrossing = () => {
     playTap();
-    const a = Number(crossA);
-    const b = Number(crossB);
+    const base = crossBase.replace(/\D/g, '').slice(0, 8);
     const amt = Number(crossAmt);
-    if (Number.isNaN(a) || a < 0 || a > 9 || Number.isNaN(b) || b < 0 || b > 9) {
-      notify('Enter digits 0–9 for both numbers');
+    if (base.length < 2) {
+      notify('Enter 2–8 digit base number');
       return;
     }
     if (!amt || amt <= 0) {
       notify('Enter amount');
       return;
     }
-    const pair = a * 10 + b;
-    const rows = [{ label: `${a}x${b}`, number: pair, amount: amt }];
-    if (jodiCut && a !== b) {
-      rows.push({ label: `${b}x${a}`, number: b * 10 + a, amount: amt });
+    if (finalHour && amt > 200) {
+      notify('Max bet Rs 200 in final hour');
+      return;
+    }
+    const { rows } = expandCrossing(base, amt, jodiCut);
+    if (!rows.length) {
+      notify('No combinations');
+      return;
     }
     setCrossRows((cur) => [...cur, ...rows]);
-    setCrossA('');
-    setCrossB('');
+    setCrossBase('');
     setCrossAmt('');
   };
 
-  const buildBets = (): { number: number; amount: number }[] => {
+  const crossPreview = useMemo(() => {
+    const base = crossBase.replace(/\D/g, '').slice(0, 8);
+    const amt = Number(crossAmt) || 0;
+    if (base.length < 2 || amt <= 0) return null;
+    return expandCrossing(base, amt, jodiCut);
+  }, [crossBase, crossAmt, jodiCut]);
+
+  const buildBets = (): BetPayload[] => {
     if (tab === 'open') {
-      return slip.map((s) => ({ number: s.number, amount: s.amount }));
+      return slip.map((s) => ({ number: s.number, amount: s.amount, kind: 'jodi' }));
     }
     if (tab === 'jantari') {
-      return Object.entries(jantari)
-        .filter(([, v]) => Number(v) > 0)
-        .map(([num, amt]) => ({ number: Number(num), amount: Number(amt) }));
+      const bets: BetPayload[] = [];
+      for (const d of JANTARI_DIGITS) {
+        const o = Number(openDigits[d] || 0);
+        if (o > 0) bets.push({ number: d, amount: o, kind: 'open' });
+        const c = Number(closeDigits[d] || 0);
+        if (c > 0) bets.push({ number: d, amount: c, kind: 'close' });
+      }
+      return bets;
     }
-    return crossRows.map((r) => ({ number: r.number, amount: r.amount }));
+    return crossRows.map((r) => ({ number: r.number, amount: r.amount, kind: 'jodi' }));
   };
 
   const submit = async () => {
@@ -116,6 +213,15 @@ export function MarketPlayScreen({ gameId, onBack }: Props) {
     const bets = buildBets();
     if (!bets.length) {
       notify('Add at least one entry');
+      return;
+    }
+    const capErr = assertBetAmountsAllowed(
+      bets.map((b) => b.amount),
+      game.next_result_at,
+      now,
+    );
+    if (capErr) {
+      notify(capErr);
       return;
     }
     const total = bets.reduce((s, b) => s + b.amount, 0);
@@ -136,10 +242,76 @@ export function MarketPlayScreen({ gameId, onBack }: Props) {
     playBetOk();
     await refreshProfile();
     setSlip([]);
-    setJantari({});
+    setOpenDigits({});
+    setCloseDigits({});
     setCrossRows([]);
-    notify('Bet placed ✓');
+    setWaitingHint(true);
+    notify('Bet placed ✓ Waiting for result…');
+    await refreshLive();
   };
+
+  const digitRow = (
+    label: string,
+    values: Record<number, string>,
+    setValues: Dispatch<SetStateAction<Record<number, string>>>,
+  ) => (
+    <div className="jantari-kind-block">
+      <div className="jantari-kind-label">{label}</div>
+      <div className="jantari-kind-nums">
+        {JANTARI_DIGITS.map((n) => (
+          <span key={n}>{n}</span>
+        ))}
+      </div>
+      <div className="jantari-kind-inputs">
+        {JANTARI_DIGITS.map((n) => (
+          <input
+            key={n}
+            value={values[n] || ''}
+            onChange={(e) => {
+              const v = e.target.value.replace(/[^0-9]/g, '').slice(0, 5);
+              setValues((cur) => ({ ...cur, [n]: v }));
+            }}
+            inputMode="numeric"
+            aria-label={`${label} ${n}`}
+          />
+        ))}
+      </div>
+    </div>
+  );
+
+  const outcomeModal =
+    outcome &&
+    createPortal(
+      <div className="result-modal" role="dialog" aria-modal="true">
+        <div className={`result-modal-card ${outcome.type}`}>
+          {outcome.type === 'won' ? (
+            <>
+              <PartyPopper size={36} />
+              <h2>Congratulations!</h2>
+              <p>
+                Result <b>{outcome.digit}</b> · You won
+              </p>
+              <strong className="result-payout">+{outcome.payout} coins</strong>
+              <small>Stake {outcome.stake} · Payout 1 → 8</small>
+            </>
+          ) : (
+            <>
+              <Frown size={36} />
+              <h2>Better luck next time</h2>
+              <p>
+                Result was <b>{outcome.digit}</b>
+              </p>
+              <strong className="result-payout loss">−{outcome.stake} coins</strong>
+              <small>Official market result · also shown in red on Play Game list</small>
+            </>
+          )}
+          <button type="button" className="result-modal-btn" onClick={() => setOutcome(null)}>
+            OK
+          </button>
+        </div>
+      </div>,
+      document.body,
+    );
 
   if (!game) {
     return (
@@ -161,6 +333,46 @@ export function MarketPlayScreen({ gameId, onBack }: Props) {
           {profile?.coins ?? 0}
         </span>
       </header>
+
+      <div className="mp-stat-row">
+        <div>
+          <label>Wallet</label>
+          <b>{profile?.coins ?? 0}</b>
+        </div>
+        <div>
+          <label>Last result</label>
+          <b className={game.result ? 'mp-result-red' : ''}>{game.result || '—'}</b>
+        </div>
+        <div>
+          <label>Next result</label>
+          <b>{countdown}</b>
+        </div>
+      </div>
+
+      {finalHour && <p className="final-hour-banner">Final hour: max Rs 200 per number</p>}
+      {waitingHint && pendingBets.length > 0 && (
+        <p className="waiting-result-banner">
+          Waiting for result… It will show here and on the Play Game list in red.
+        </p>
+      )}
+
+      {roundBets.length > 0 && (
+        <div className="mp-round-bets">
+          <div className="mp-round-head">
+            <strong>Your bets</strong>
+            <span>{pendingBets.length ? 'Pending' : 'Recent'}</span>
+          </div>
+          {roundBets.map((b) => (
+            <div key={b.id} className="mp-round-row">
+              <span>
+                {kindLabel(b.bet_kind)} · {String(b.selected_number).padStart(2, '0')}
+              </span>
+              <span>{b.amount}</span>
+              <em className={`st-${b.status}`}>{b.status}</em>
+            </div>
+          ))}
+        </div>
+      )}
 
       <div className="market-play-body">
         {tab === 'open' && (
@@ -208,36 +420,9 @@ export function MarketPlayScreen({ gameId, onBack }: Props) {
         )}
 
         {tab === 'jantari' && (
-          <div className="jantari-grid">
-            {Array.from({ length: 9 }, (_, row) => {
-              const start = row * 10 + 1;
-              const nums = Array.from({ length: 10 }, (_, i) => start + i).filter((n) => n <= 90);
-              return (
-                <div key={row} className="jantari-block">
-                  <div className="jantari-nums">
-                    {nums.map((n) => (
-                      <span key={n}>{String(n).padStart(2, '0')}</span>
-                    ))}
-                  </div>
-                  <div className="jantari-inputs">
-                    {nums.map((n) => (
-                      <input
-                        key={n}
-                        value={jantari[n] || ''}
-                        onChange={(e) =>
-                          setJantari((cur) => ({
-                            ...cur,
-                            [n]: e.target.value.replace(/[^0-9]/g, '').slice(0, 5),
-                          }))
-                        }
-                        inputMode="numeric"
-                        aria-label={`Amount for ${n}`}
-                      />
-                    ))}
-                  </div>
-                </div>
-              );
-            })}
+          <div className="jantari-v2">
+            {digitRow('Dhai / Open / अंदर', openDigits, setOpenDigits)}
+            {digitRow('Harup / Close / बाहर', closeDigits, setCloseDigits)}
           </div>
         )}
 
@@ -248,28 +433,28 @@ export function MarketPlayScreen({ gameId, onBack }: Props) {
                 <input type="checkbox" checked={jodiCut} onChange={(e) => setJodiCut(e.target.checked)} />
                 Jodi Cut
               </label>
-              <div className="cross-nums">
+              <label className="mp-field">
+                <span>Base number (2–8 digits)</span>
                 <input
-                  value={crossA}
-                  onChange={(e) => setCrossA(e.target.value.replace(/[^0-9]/g, '').slice(0, 1))}
-                  placeholder="Number"
+                  value={crossBase}
+                  onChange={(e) => setCrossBase(e.target.value.replace(/[^0-9]/g, '').slice(0, 8))}
+                  placeholder="e.g. 573"
                   inputMode="numeric"
                 />
-                <span className="cross-x">x</span>
-                <input
-                  value={crossB}
-                  onChange={(e) => setCrossB(e.target.value.replace(/[^0-9]/g, '').slice(0, 1))}
-                  placeholder="Number"
-                  inputMode="numeric"
-                />
-              </div>
+              </label>
               <input
                 className="cross-amt"
                 value={crossAmt}
                 onChange={(e) => setCrossAmt(e.target.value.replace(/[^0-9]/g, '').slice(0, 6))}
-                placeholder="Amount"
+                placeholder="Amount per combination"
                 inputMode="numeric"
               />
+              {crossPreview && (
+                <p className="cross-preview">
+                  {crossPreview.count} combos · Total ₹{crossPreview.total}/-
+                  {jodiCut ? ' (Jodi Cut)' : ''}
+                </p>
+              )}
               <button type="button" className="mp-add" onClick={addCrossing}>
                 + Add
               </button>
@@ -290,29 +475,15 @@ export function MarketPlayScreen({ gameId, onBack }: Props) {
         )}
       </div>
 
-      {tab === 'open' && (
-        <div className="mp-continue-bar">
-          <div className="mp-total">
-            <strong>₹ {totalAmount}/-</strong>
-            <small>Total Amount</small>
-          </div>
-          <button type="button" className="mp-continue" onClick={submit} disabled={busy}>
-            {busy ? '…' : 'Continue'}
-          </button>
+      <div className="mp-continue-bar">
+        <div className="mp-total">
+          <strong>₹ {totalAmount}/-</strong>
+          <small>Total Amount</small>
         </div>
-      )}
-
-      {(tab === 'jantari' || tab === 'crossing') && (
-        <div className="mp-continue-bar">
-          <div className="mp-total">
-            <strong>₹ {totalAmount}/-</strong>
-            <small>Total Amount</small>
-          </div>
-          <button type="button" className="mp-continue" onClick={submit} disabled={busy}>
-            {busy ? '…' : 'Continue'}
-          </button>
-        </div>
-      )}
+        <button type="button" className="mp-continue" onClick={submit} disabled={busy}>
+          {busy ? '…' : 'Continue'}
+        </button>
+      </div>
 
       <nav className="market-sub-nav">
         {(
@@ -338,6 +509,7 @@ export function MarketPlayScreen({ gameId, onBack }: Props) {
       </nav>
 
       {toast && <div className="toast">{toast}</div>}
+      {outcomeModal}
     </div>
   );
 }

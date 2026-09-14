@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { ArrowLeft } from 'lucide-react';
 import { isHarfGame, supabase, type Game, type ResultHistory } from '@/lib/supabase';
 
+const MONTH_MS = 30 * 24 * 60 * 60 * 1000;
+
 export function ResultsHistoryScreen({ onBack }: { onBack: () => void }) {
   const [games, setGames] = useState<Game[]>([]);
   const [results, setResults] = useState<ResultHistory[]>([]);
@@ -9,9 +11,15 @@ export function ResultsHistoryScreen({ onBack }: { onBack: () => void }) {
 
   useEffect(() => {
     void (async () => {
+      const since = new Date(Date.now() - MONTH_MS).toISOString();
       const [g, r] = await Promise.all([
         supabase.from('games').select('*').order('created_at'),
-        supabase.from('results_history').select('*').order('published_at', { ascending: false }).limit(100),
+        supabase
+          .from('results_history')
+          .select('*')
+          .gte('published_at', since)
+          .order('published_at', { ascending: false })
+          .limit(200),
       ]);
       if (g.data) {
         const list = g.data as Game[];
@@ -44,6 +52,8 @@ export function ResultsHistoryScreen({ onBack }: { onBack: () => void }) {
         </div>
       </div>
 
+      <p className="info-lead">Showing results from the last 1 month only.</p>
+
       <div className="filter-chips">
         <button type="button" className={filter === 'all' ? 'on' : ''} onClick={() => setFilter('all')}>
           All
@@ -70,7 +80,7 @@ export function ResultsHistoryScreen({ onBack }: { onBack: () => void }) {
             </div>
           </div>
         ))}
-        {filtered.length === 0 && <p className="empty-state">No results published yet.</p>}
+        {filtered.length === 0 && <p className="empty-state">No results in the last month.</p>}
       </div>
     </div>
   );

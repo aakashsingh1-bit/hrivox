@@ -127,7 +127,12 @@ export function AdminScreen({ onBack }: { onBack?: () => void }) {
       supabase.from('games').select('*').order('created_at'),
       supabase.from('profiles').select('*').order('created_at'),
       supabase.from('bets').select('*').order('created_at', { ascending: false }).limit(150),
-      supabase.from('results_history').select('*').order('published_at', { ascending: false }).limit(50),
+      supabase
+        .from('results_history')
+        .select('*')
+        .gte('published_at', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString())
+        .order('published_at', { ascending: false })
+        .limit(100),
     ]);
     let nextSelected = selectedGameId;
     if (g.data) {
@@ -255,6 +260,26 @@ export function AdminScreen({ onBack }: { onBack?: () => void }) {
     setCreditAmt((c) => ({ ...c, [userId]: '' }));
     await loadAll();
     notify(`Coins updated by ${amt}`);
+  };
+
+  const recordDeposit = async (userId: string) => {
+    const amt = Number(creditAmt[userId] || 0);
+    if (!amt || amt <= 0) {
+      notify('Enter deposit amount (positive)');
+      return;
+    }
+    const { error } = await supabase.rpc('admin_record_deposit', {
+      p_user_id: userId,
+      p_amount: amt,
+      p_note: 'Admin confirmed deposit',
+    });
+    if (error) {
+      notify(error.message || 'Deposit failed');
+      return;
+    }
+    setCreditAmt((c) => ({ ...c, [userId]: '' }));
+    await loadAll();
+    notify(`Deposit Rs ${amt} recorded (+ coins; referral checked)`);
   };
 
   return (
@@ -397,6 +422,14 @@ export function AdminScreen({ onBack }: { onBack?: () => void }) {
                       </strong>
                       <small>
                         Result: {game.result || '--'} · Next: {formatCountdown(ms)}
+                        {game.external_name ? ` · Ext: ${game.external_name}` : ''}
+                        {game.last_scraped_result
+                          ? ` · Scraped ${game.last_scraped_result}${
+                              game.last_scraped_at
+                                ? ` @ ${new Date(game.last_scraped_at).toLocaleTimeString()}`
+                                : ''
+                            }`
+                          : ''}
                       </small>
                       <span className={`game-status ${game.is_active ? 'on' : 'off'}`}>
                         {game.is_active ? 'ON' : 'OFF'}
@@ -445,8 +478,14 @@ export function AdminScreen({ onBack }: { onBack?: () => void }) {
                       <button type="button" className="publish-button" onClick={() => publishOverride(game)}>
                         Override & settle
                       </button>
-                      <button type="button" className="settle-button" onClick={() => forceSettle(game)}>
-                        Auto settle now
+                      <button
+                        type="button"
+                        className="settle-button"
+                        onClick={() => forceSettle(game)}
+                        disabled={!harf}
+                        title={harf ? 'Lowest-bet settle' : 'Markets need scraped/admin override'}
+                      >
+                        {harf ? 'Auto settle now' : 'Needs official result'}
                       </button>
                       <button
                         type="button"
@@ -486,7 +525,7 @@ export function AdminScreen({ onBack }: { onBack?: () => void }) {
                   </div>
                   <div className="credit-row">
                     <input
-                      placeholder="+/-"
+                      placeholder="+/- coins"
                       value={creditAmt[u.id] ?? ''}
                       onChange={(e) =>
                         setCreditAmt((c) => ({
@@ -497,7 +536,15 @@ export function AdminScreen({ onBack }: { onBack?: () => void }) {
                       inputMode="numeric"
                     />
                     <button type="button" onClick={() => creditUser(u.id)}>
-                      Apply
+                      Coins
+                    </button>
+                    <button
+                      type="button"
+                      className="deposit-btn"
+                      onClick={() => recordDeposit(u.id)}
+                      title="Record deposit (referral if ≥2000)"
+                    >
+                      Deposit
                     </button>
                   </div>
                 </div>
@@ -520,7 +567,8 @@ export function AdminScreen({ onBack }: { onBack?: () => void }) {
                     <div>
                       <strong>{user?.display_name ?? '—'}</strong>
                       <small>
-                        {gameLabel(game)} · #{bet.selected_number} · {bet.amount} coins ·{' '}
+                        {gameLabel(game)}
+                        {bet.bet_kind ? ` · ${bet.bet_kind}` : ''} · #{bet.selected_number} · {bet.amount} coins ·{' '}
                         {new Date(bet.created_at).toLocaleString()}
                       </small>
                     </div>

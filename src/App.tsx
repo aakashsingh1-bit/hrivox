@@ -11,6 +11,7 @@ import { HowItWorksScreen } from '@/screens/HowItWorksScreen';
 import { TimingsScreen } from '@/screens/TimingsScreen';
 import { ResultsHistoryScreen } from '@/screens/ResultsHistoryScreen';
 import { SettingsScreen } from '@/screens/SettingsScreen';
+import { InviteScreen } from '@/screens/InviteScreen';
 import { SplashScreen } from '@/screens/SplashScreen';
 import { AppShell, type Tab } from '@/components/AppShell';
 import { shouldShowSplash } from '@/lib/prefs';
@@ -30,16 +31,31 @@ function AppContent() {
   const finishSplash = useCallback(() => setSplashDone(true), []);
 
   useEffect(() => {
+    if (!profile) {
+      setHarfGameId(null);
+      setHarfReady(false);
+      return;
+    }
+    let cancelled = false;
     void (async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('games')
         .select('id')
         .eq('short_code', HARF_SHORT_CODE)
         .maybeSingle();
-      setHarfGameId(data?.id ?? null);
+      if (cancelled) return;
+      if (error) {
+        console.error('Harf game load failed', error.message);
+        setHarfGameId(null);
+      } else {
+        setHarfGameId(data?.id ?? null);
+      }
       setHarfReady(true);
     })();
-  }, []);
+    return () => {
+      cancelled = true;
+    };
+  }, [profile?.id]);
 
   if (!splashDone) {
     return <SplashScreen onDone={finishSplash} />;
@@ -113,6 +129,9 @@ function AppContent() {
       )}
       {activeTab === 'more' && morePage === 'settings' && (
         <SettingsScreen onBack={() => setMorePage('menu')} />
+      )}
+      {activeTab === 'more' && morePage === 'invite' && (
+        <InviteScreen onBack={() => setMorePage('menu')} />
       )}
     </AppShell>
   );
