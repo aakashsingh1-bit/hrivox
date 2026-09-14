@@ -1,6 +1,7 @@
-// Fetch official results from satta-king-fast.com and settle due markets.
+// Fetch official results — prefers HTML body; otherwise fetches source URL.
+// Note: satta-king-fast.com often returns 403 to Supabase Edge IPs.
+// Production scrape uses Vercel /api/scrape-results instead.
 // Deploy: supabase functions deploy fetch-results
-// Schedule cron every 1–5 minutes.
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.4';
 
@@ -12,39 +13,31 @@ function normalizeName(s: string) {
     .trim();
 }
 
-/** Parse markdown-ish / HTML table text into name → latest result digit string */
 function parseResults(html: string): Record<string, string> {
   const out: Record<string, string> = {};
-  // Strip tags lightly
-  const text = html
-    .replace(/<script[\s\S]*?<\/script>/gi, ' ')
-    .replace(/<style[\s\S]*?<\/style>/gi, ' ')
-    .replace(/<[^>]+>/g, ' ')
-    .replace(/&nbsp;/g, ' ')
-    .replace(/\s+/g, ' ');
 
-  // Patterns like: GALI at 11:25 PM ... 72 or FARIDABAD ... 30
-  const re =
-    /([A-Z][A-Z0-9 .'\-]{2,40}?)\s+at\s+\d{1,2}:\d{2}\s*(?:AM|PM)?[^\d]{0,40}?(\d{1,2}|XX|--)\s+(\d{1,2}|XX|--)/gi;
+  const rowRe =
+    /class=["']game-result[^"']*["'][\s\S]*?class=["']game-name["'][^>]*>\s*([^<]+?)\s*<\/h3>[\s\S]*?class=["']today-number["'][\s\S]*?<h3>\s*([^<]+?)\s*<\/h3>/gi;
   let m: RegExpExecArray | null;
-  while ((m = re.exec(text)) !== null) {
+  while ((m = rowRe.exec(html)) !== null) {
     const name = normalizeName(m[1]);
-    const today = m[3];
-    if (/^\d{1,2}$/.test(today)) {
-      out[name] = today.padStart(2, '0');
-    }
+    const today = m[2].trim();
+    if (!name || name.includes('SHOW YOUR GAME')) continue;
+    if (/^\d{1,2}$/.test(today)) out[name] = today.padStart(2, '0');
   }
 
-  // Monthly chart header DSWR FRBD GZBD GALI last row
-  const chart = text.match(
-    /DATE\s+DSWR\s+FRBD\s+GZBD\s+GALI[\s\S]{0,800}?(\d{2})\s+(\d{1,2}|XX)\s+(\d{1,2}|XX)\s+(\d{1,2}|XX)\s+(\d{1,2}|XX)/i,
-  );
-  if (chart) {
+  const chartRows = [
+    ...html.matchAll(
+      /<tr[^>]*Class=["']day-number["'][^>]*>\s*<td[^>]*>\s*(\d{1,2})\s*<\/td>\s*<td[^>]*>\s*([^<]+)<\/td>\s*<td[^>]*>\s*([^<]+)<\/td>\s*<td[^>]*>\s*([^<]+)<\/td>\s*<td[^>]*>\s*([^<]+)<\/td>/gi,
+    ),
+  ];
+  if (chartRows.length) {
+    const last = chartRows[chartRows.length - 1];
     const map: [string, string][] = [
-      ['DESAWAR', chart[2]],
-      ['FARIDABAD', chart[3]],
-      ['GHAZIABAD', chart[4]],
-      ['GALI', chart[5]],
+      ['DESAWAR', last[2].trim()],
+      ['FARIDABAD', last[3].trim()],
+      ['GHAZIABAD', last[4].trim()],
+      ['GALI', last[5].trim()],
     ];
     for (const [n, v] of map) {
       if (/^\d{1,2}$/.test(v)) out[n] = v.padStart(2, '0');
@@ -57,7 +50,6 @@ function parseResults(html: string): Record<string, string> {
 function lookupResult(parsed: Record<string, string>, externalName: string): string | null {
   const key = normalizeName(externalName);
   if (parsed[key]) return parsed[key];
-  // fuzzy contains
   for (const [n, v] of Object.entries(parsed)) {
     if (n.includes(key) || key.includes(n)) return v;
   }
@@ -71,7 +63,6 @@ Deno.serve(async (req) => {
     const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 
-    // Allow: cron secret, service role, or any authenticated user JWT
     const bearer = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
     const isCron = Boolean(cronSecret && bearer === cronSecret);
     const isService = Boolean(serviceKey && (bearer === serviceKey || authHeader.includes(serviceKey)));
@@ -88,7 +79,6 @@ Deno.serve(async (req) => {
         return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
       }
     } else if (!isService && !isUser && bearer) {
-      // no cron secret configured: require valid user or service
       const userClient = createClient(supabaseUrl, Deno.env.get('SUPABASE_ANON_KEY') || serviceKey, {
         global: { headers: { Authorization: `Bearer ${bearer}` } },
       });
@@ -100,38 +90,38 @@ Deno.serve(async (req) => {
 
     const admin = createClient(supabaseUrl, serviceKey);
 
-    // Site often blocks datacenter/bot UAs with 403 — use a normal browser profile
-    const browserHeaders: Record<string, string> = {
-      'User-Agent':
-        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-      Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
-      'Accept-Language': 'en-IN,en-US;q=0.9,en;q=0.8',
-      'Cache-Control': 'no-cache',
-      Pragma: 'no-cache',
-      'Upgrade-Insecure-Requests': '1',
-      Referer: 'https://www.google.com/',
-    };
-
-    const sourceUrl = Deno.env.get('RESULT_SOURCE_URL') || 'https://satta-king-fast.com/';
-    let res = await fetch(sourceUrl, { headers: browserHeaders, redirect: 'follow' });
-
-    // One retry without Referer if first attempt blocked
-    if (res.status === 403 || res.status === 429) {
-      const { Referer: _r, ...rest } = browserHeaders;
-      res = await fetch(sourceUrl, { headers: rest, redirect: 'follow' });
+    let html = '';
+    try {
+      const body = req.method !== 'GET' ? await req.json().catch(() => ({})) : {};
+      if (body && typeof body.html === 'string' && body.html.length > 100) {
+        html = body.html;
+      }
+    } catch {
+      /* ignore */
     }
 
-    if (!res.ok) {
-      return new Response(
-        JSON.stringify({
-          error: `Fetch failed ${res.status}`,
-          hint:
-            'Source site blocked the server IP. Use Admin Override for now, or set RESULT_SOURCE_URL secret to an allowed mirror.',
-        }),
-        { status: 502, headers: { 'Content-Type': 'application/json' } },
-      );
+    if (!html) {
+      const browserHeaders: Record<string, string> = {
+        'User-Agent':
+          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+        Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'en-IN,en-US;q=0.9,en;q=0.8',
+        Referer: 'https://www.google.com/',
+      };
+      const sourceUrl = Deno.env.get('RESULT_SOURCE_URL') || 'https://satta-king-fast.com/';
+      const res = await fetch(sourceUrl, { headers: browserHeaders, redirect: 'follow' });
+      if (!res.ok) {
+        return new Response(
+          JSON.stringify({
+            error: `Fetch failed ${res.status}`,
+            hint: 'Use Vercel /api/scrape-results (site blocks Supabase Edge IPs). Or POST { html: "..." }.',
+          }),
+          { status: 502, headers: { 'Content-Type': 'application/json' } },
+        );
+      }
+      html = await res.text();
     }
-    const html = await res.text();
+
     const parsed = parseResults(html);
 
     const { data: games, error: gErr } = await admin
@@ -174,14 +164,10 @@ Deno.serve(async (req) => {
         p_game_id: g.id,
         p_override: String(Number(result)),
       });
-      if (error) {
-        skipped.push(`${g.short_code}:${error.message}`);
-      } else {
-        settled.push({ game: g.short_code, result: String(data ?? result) });
-      }
+      if (error) skipped.push(`${g.short_code}:${error.message}`);
+      else settled.push({ game: g.short_code, result: String(data ?? result) });
     }
 
-    // Also settle Harf via lowest-bet when due
     await admin.rpc('settle_due_games');
 
     return new Response(

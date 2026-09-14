@@ -1,10 +1,34 @@
 import { supabase, type Bet, type Game } from '@/lib/supabase';
 
-/** Best-effort: ask edge function to scrape + settle due markets. */
+/** Prefer Vercel scrape API (avoids Supabase Edge 403); fall back to Edge Function. */
 export async function requestMarketResults(): Promise<{ ok: boolean; error?: string }> {
   try {
+    const { data: sessionData } = await supabase.auth.getSession();
+    const token = sessionData.session?.access_token || '';
+
+    const vercelRes = await fetch('/api/scrape-results', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: '{}',
+    });
+
+    if (vercelRes.ok) {
+      const data = await vercelRes.json().catch(() => ({}));
+      if (data?.error) return { ok: false, error: String(data.error) };
+      return { ok: true };
+    }
+
+    // Local/dev without Vercel API, or misconfigured — try Edge Function
     const { data, error } = await supabase.functions.invoke('fetch-results', { body: {} });
-    if (error) return { ok: false, error: error.message };
+    if (error) {
+      return {
+        ok: false,
+        error: error.message || `Vercel scrape HTTP ${vercelRes.status}`,
+      };
+    }
     if (data && typeof data === 'object' && 'error' in data && (data as { error?: string }).error) {
       return { ok: false, error: String((data as { error: string }).error) };
     }
