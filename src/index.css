@@ -980,10 +980,6 @@ button:focus-visible, input:focus-visible { outline: 3px solid rgba(39, 154, 224
   width: 100%; padding: 12px; border: 1px solid #d5dde6; border-radius: 6px;
   font-size: 14px; background: #fff; color: #162134;
 }
-.mp-add {
-  margin-top: 12px; width: 100%; padding: 13px; border: 0; border-radius: 8px;
-  background: #238fd2; color: #fff; font-weight: 700; font-size: 15px;
-}
 .mp-slip { background: #fff; border-radius: 8px; overflow: hidden; margin-bottom: 12px; }
 .mp-slip-head, .mp-slip-row {
   display: grid; grid-template-columns: 1fr 1fr; padding: 10px 14px; font-size: 13px;
@@ -1007,17 +1003,56 @@ button:focus-visible, input:focus-visible { outline: 3px solid rgba(39, 154, 224
   text-align: center; font-size: 11px; font-weight: 600; background: #fff;
 }
 
-.crossing-card .jodi-cut {
-  display: flex; align-items: center; gap: 8px; margin-bottom: 12px;
-  font-size: 14px; font-weight: 600;
+.mp-form-panel {
+  background: #fff;
+  padding: 12px 12px 4px;
+  margin: 0 -12px 0;
+}
+.mp-form-panel.crossing-panel { padding-top: 10px; }
+.mp-plain-input {
+  display: block; width: 100%; margin-bottom: 10px; padding: 12px 14px;
+  border: 1px solid #cfd8e3; border-radius: 2px; background: #fff;
+  font-size: 14px; color: #162134;
+}
+.mp-form-panel .jodi-cut,
+.crossing-panel .jodi-cut {
+  display: flex; align-items: center; gap: 8px; margin: 0 0 12px;
+  font-size: 14px; font-weight: 600; color: #162134;
 }
 .cross-nums {
   display: grid; grid-template-columns: 1fr auto 1fr; gap: 8px; align-items: center;
   margin-bottom: 10px;
 }
+.cross-nums input {
+  width: 100%; padding: 12px 14px; border: 1px solid #cfd8e3; border-radius: 2px;
+  background: #fff; font-size: 14px; color: #162134;
+}
 .cross-x {
   display: grid; place-items: center; width: 28px; height: 28px;
-  border-radius: 4px; background: #cfe8f8; font-weight: 800; color: #111;
+  border: 0; border-radius: 2px; background: #cfe8f8; font-weight: 800; color: #111;
+  text-transform: lowercase;
+}
+.mp-add {
+  margin: 4px 0 12px; width: 100%; padding: 13px; border: 0; border-radius: 2px;
+  background: #238fd2; color: #fff; font-weight: 700; font-size: 15px;
+}
+.mp-slip.flat {
+  margin: 0 -12px; border-radius: 0; background: #f3f5f8; min-height: 180px;
+}
+.mp-slip.flat .mp-slip-head {
+  background: #e6ebf1; color: #4a5a6e;
+}
+.mp-slip.flat .mp-slip-row { background: #f3f5f8; }
+.mp-closed-banner {
+  margin: 0; padding: 8px 12px; background: #fdecea; color: #c62828;
+  font: 600 12px 'Space Grotesk', sans-serif; text-align: center; cursor: pointer;
+}
+.mp-min-hint {
+  margin: 0 0 8px; color: #5a6778; font-size: 12px;
+}
+.crossing-card .jodi-cut {
+  display: flex; align-items: center; gap: 8px; margin-bottom: 12px;
+  font-size: 14px; font-weight: 600;
 }
 
 .mp-continue-bar {

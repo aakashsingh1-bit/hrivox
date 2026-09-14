@@ -5,11 +5,12 @@ import { useAuth } from '@/lib/auth';
 import { supabase, type Bet, type Game } from '@/lib/supabase';
 import { playBetOk, playLose, playTap, playWin } from '@/lib/sounds';
 import {
-  assertBetAmountsAllowed,
-  expandCrossing,
-  isFinalHour,
+  assertMarketMinBet,
+  expandCrossingPair,
   JANTARI_DIGITS,
+  MARKET_MIN_BET,
 } from '@/lib/crossing';
+import { isMarketBettingOpen, scrapedDigit } from '@/lib/marketSchedule';
 import {
   loadGame,
   loadMyGameBets,
@@ -42,7 +43,8 @@ export function MarketPlayScreen({ gameId, onBack }: Props) {
   const [openDigits, setOpenDigits] = useState<Record<number, string>>({});
   const [closeDigits, setCloseDigits] = useState<Record<number, string>>({});
   const [jodiCut, setJodiCut] = useState(false);
-  const [crossBase, setCrossBase] = useState('');
+  const [crossLeft, setCrossLeft] = useState('');
+  const [crossRight, setCrossRight] = useState('');
   const [crossAmt, setCrossAmt] = useState('');
   const [crossRows, setCrossRows] = useState<{ label: string; number: number; amount: number }[]>([]);
 
@@ -109,7 +111,8 @@ export function MarketPlayScreen({ gameId, onBack }: Props) {
     window.setTimeout(() => setToast(''), 3200);
   };
 
-  const finalHour = isFinalHour(game?.next_result_at, now);
+  const bettingOpen = game ? isMarketBettingOpen(game, now) : false;
+  const todayDigit = scrapedDigit(game?.last_scraped_result);
 
   const totalAmount = useMemo(() => {
     const slipTotal = slip.reduce((s, i) => s + i.amount, 0);
@@ -123,18 +126,18 @@ export function MarketPlayScreen({ gameId, onBack }: Props) {
 
   const addOpen = () => {
     playTap();
+    if (!bettingOpen) {
+      notify('bet closed');
+      return;
+    }
     const n = Number(openNum);
     const a = Number(openAmt);
     if (Number.isNaN(n) || n < 0 || n > 99) {
       notify('Enter number 0–99');
       return;
     }
-    if (!a || a <= 0) {
-      notify('Enter amount');
-      return;
-    }
-    if (finalHour && a > 200) {
-      notify('Max bet Rs 200 in final hour');
+    if (!a || a < MARKET_MIN_BET) {
+      notify(`Minimum bet Rs ${MARKET_MIN_BET}`);
       return;
     }
     setSlip((cur) => [
@@ -147,36 +150,44 @@ export function MarketPlayScreen({ gameId, onBack }: Props) {
 
   const addCrossing = () => {
     playTap();
-    const base = crossBase.replace(/\D/g, '').slice(0, 8);
+    if (!bettingOpen) {
+      notify('bet closed');
+      return;
+    }
+    const left = crossLeft.replace(/\D/g, '').slice(0, 8);
+    const right = crossRight.replace(/\D/g, '').slice(0, 8);
     const amt = Number(crossAmt);
-    if (base.length < 2) {
-      notify('Enter 2–8 digit base number');
+    if (left.length < 1) {
+      notify('Enter number');
       return;
     }
-    if (!amt || amt <= 0) {
-      notify('Enter amount');
+    if (left.length < 2 && right.length < 1) {
+      notify('Enter 2+ digits or both number fields');
       return;
     }
-    if (finalHour && amt > 200) {
-      notify('Max bet Rs 200 in final hour');
+    if (!amt || amt < MARKET_MIN_BET) {
+      notify(`Minimum bet Rs ${MARKET_MIN_BET}`);
       return;
     }
-    const { rows } = expandCrossing(base, amt, jodiCut);
+    const { rows } = expandCrossingPair(left, right, amt, jodiCut);
     if (!rows.length) {
       notify('No combinations');
       return;
     }
     setCrossRows((cur) => [...cur, ...rows]);
-    setCrossBase('');
+    setCrossLeft('');
+    setCrossRight('');
     setCrossAmt('');
   };
 
   const crossPreview = useMemo(() => {
-    const base = crossBase.replace(/\D/g, '').slice(0, 8);
+    const left = crossLeft.replace(/\D/g, '').slice(0, 8);
+    const right = crossRight.replace(/\D/g, '').slice(0, 8);
     const amt = Number(crossAmt) || 0;
-    if (base.length < 2 || amt <= 0) return null;
-    return expandCrossing(base, amt, jodiCut);
-  }, [crossBase, crossAmt, jodiCut]);
+    if (left.length < 1 || amt < MARKET_MIN_BET) return null;
+    if (left.length < 2 && right.length < 1) return null;
+    return expandCrossingPair(left, right, amt, jodiCut);
+  }, [crossLeft, crossRight, crossAmt, jodiCut]);
 
   const buildBets = (): BetPayload[] => {
     if (tab === 'open') {
@@ -197,18 +208,18 @@ export function MarketPlayScreen({ gameId, onBack }: Props) {
 
   const submit = async () => {
     if (!profile || !game) return;
+    if (!bettingOpen) {
+      notify('bet closed');
+      return;
+    }
     const bets = buildBets();
     if (!bets.length) {
       notify('Add at least one entry');
       return;
     }
-    const capErr = assertBetAmountsAllowed(
-      bets.map((b) => b.amount),
-      game.next_result_at,
-      now,
-    );
-    if (capErr) {
-      notify(capErr);
+    const minErr = assertMarketMinBet(bets.map((b) => b.amount));
+    if (minErr) {
+      notify(minErr);
       return;
     }
     const total = bets.reduce((s, b) => s + b.amount, 0);
@@ -259,6 +270,7 @@ export function MarketPlayScreen({ gameId, onBack }: Props) {
             }}
             inputMode="numeric"
             aria-label={`${label} ${n}`}
+            placeholder="0"
           />
         ))}
       </div>
@@ -320,63 +332,58 @@ export function MarketPlayScreen({ gameId, onBack }: Props) {
         </span>
       </header>
 
-      {finalHour && <p className="final-hour-banner">Final hour: max Rs 200 per number</p>}
+      {!bettingOpen && (
+        <p className="mp-closed-banner" onClick={() => notify('bet closed')}>
+          Betting closed for this market
+        </p>
+      )}
 
-      {game.result &&
-        game.next_result_at &&
-        new Date(game.next_result_at).getTime() <= now && (
-          <p className="mp-result-red market-last-result">
-            Result: <strong>{String(game.result).padStart(2, '0')}</strong>
-          </p>
-        )}
+      {todayDigit && (
+        <p className="mp-result-red market-last-result">
+          Result: <strong>{todayDigit}</strong>
+        </p>
+      )}
 
       <div className="market-play-body">
         {tab === 'open' && (
           <>
-            <div className="mp-card">
-              <label className="mp-field">
-                <span>Number</span>
-                <input
-                  value={openNum}
-                  onChange={(e) => setOpenNum(e.target.value.replace(/[^0-9]/g, '').slice(0, 2))}
-                  placeholder="Enter Number"
-                  inputMode="numeric"
-                />
-              </label>
-            </div>
-            <div className="mp-card">
-              <label className="mp-field">
-                <span>Amount</span>
-                <input
-                  value={openAmt}
-                  onChange={(e) => setOpenAmt(e.target.value.replace(/[^0-9]/g, '').slice(0, 6))}
-                  placeholder="Enter Amount"
-                  inputMode="numeric"
-                />
-              </label>
+            <div className="mp-form-panel">
+              <input
+                className="mp-plain-input"
+                value={openNum}
+                onChange={(e) => setOpenNum(e.target.value.replace(/[^0-9]/g, '').slice(0, 2))}
+                placeholder="Number"
+                inputMode="numeric"
+              />
+              <input
+                className="mp-plain-input"
+                value={openAmt}
+                onChange={(e) => setOpenAmt(e.target.value.replace(/[^0-9]/g, '').slice(0, 6))}
+                placeholder="Amount"
+                inputMode="numeric"
+              />
               <button type="button" className="mp-add" onClick={addOpen}>
-                Add
+                + Add
               </button>
             </div>
-            {slip.length > 0 && (
-              <div className="mp-slip">
-                <div className="mp-slip-head">
-                  <span>Number</span>
-                  <span>Amount</span>
-                </div>
-                {slip.map((s) => (
-                  <div key={s.key} className="mp-slip-row">
-                    <span>{s.label}</span>
-                    <span>{s.amount}</span>
-                  </div>
-                ))}
+            <div className="mp-slip flat">
+              <div className="mp-slip-head">
+                <span>Number</span>
+                <span>Amount</span>
               </div>
-            )}
+              {slip.map((s) => (
+                <div key={s.key} className="mp-slip-row">
+                  <span>{s.label}</span>
+                  <span>{s.amount}</span>
+                </div>
+              ))}
+            </div>
           </>
         )}
 
         {tab === 'jantari' && (
           <div className="jantari-v2">
+            <p className="mp-min-hint">Minimum bet Rs {MARKET_MIN_BET} per number · no final-hour cap</p>
             {digitRow('Dhai / Open / अंदर', openDigits, setOpenDigits)}
             {digitRow('Harup / Close / बाहर', closeDigits, setCloseDigits)}
           </div>
@@ -384,25 +391,33 @@ export function MarketPlayScreen({ gameId, onBack }: Props) {
 
         {tab === 'crossing' && (
           <>
-            <div className="mp-card crossing-card">
+            <div className="mp-form-panel crossing-panel">
               <label className="jodi-cut">
                 <input type="checkbox" checked={jodiCut} onChange={(e) => setJodiCut(e.target.checked)} />
                 Jodi Cut
               </label>
-              <label className="mp-field">
-                <span>Base number (2–8 digits)</span>
+              <div className="cross-nums">
                 <input
-                  value={crossBase}
-                  onChange={(e) => setCrossBase(e.target.value.replace(/[^0-9]/g, '').slice(0, 8))}
-                  placeholder="e.g. 573"
+                  value={crossLeft}
+                  onChange={(e) => setCrossLeft(e.target.value.replace(/[^0-9]/g, '').slice(0, 8))}
+                  placeholder="Number"
                   inputMode="numeric"
                 />
-              </label>
+                <span className="cross-x" aria-hidden>
+                  x
+                </span>
+                <input
+                  value={crossRight}
+                  onChange={(e) => setCrossRight(e.target.value.replace(/[^0-9]/g, '').slice(0, 8))}
+                  placeholder="Number"
+                  inputMode="numeric"
+                />
+              </div>
               <input
-                className="cross-amt"
+                className="mp-plain-input"
                 value={crossAmt}
                 onChange={(e) => setCrossAmt(e.target.value.replace(/[^0-9]/g, '').slice(0, 6))}
-                placeholder="Amount per combination"
+                placeholder="Amount"
                 inputMode="numeric"
               />
               {crossPreview && (
@@ -415,7 +430,7 @@ export function MarketPlayScreen({ gameId, onBack }: Props) {
                 + Add
               </button>
             </div>
-            <div className="mp-slip">
+            <div className="mp-slip flat">
               <div className="mp-slip-head">
                 <span>Number</span>
                 <span>Amount</span>

@@ -1,8 +1,9 @@
 /**
- * V2 Crossing expansion tests (run: node --input-type=module src/lib/crossing.test.mjs)
- * Kept as .mjs so it runs without a test runner.
+ * V2 Crossing expansion tests (run: node --experimental-strip-types src/lib/crossing.test.mjs)
+ * or: node --input-type=module --experimental-strip-types src/lib/crossing.test.mjs
  */
-import { expandCrossing, assertBetAmountsAllowed } from './crossing.ts';
+import { expandCrossing, assertBetAmountsAllowed, assertMarketMinBet } from './crossing.ts';
+import { isMarketBettingOpen, nextDrawWindow, formatMarketRange } from './marketSchedule.ts';
 
 const cases = [
   ['573', 10, false, 9, 90],
@@ -34,8 +35,41 @@ if (assertBetAmountsAllowed([201], soon) !== 'Max bet Rs 200 in final hour') {
   failed++;
 }
 
+if (assertMarketMinBet([99]) !== 'Minimum bet Rs 100') {
+  console.error('FAIL market min');
+  failed++;
+}
+if (assertMarketMinBet([100]) !== null) {
+  console.error('FAIL market min ok');
+  failed++;
+}
+
+// 00:39 IST ≈ Desawar open, evening markets closed (before 06:00 open)
+const istMidnightish = Date.UTC(2026, 8, 14, 19, 9, 0); // 2026-09-15 00:39 IST
+const dwOpen = isMarketBettingOpen(
+  { short_code: 'DW', is_active: true, last_scraped_result: 'XX', result: '35' },
+  istMidnightish,
+);
+const fbOpen = isMarketBettingOpen(
+  { short_code: 'FB', is_active: true, last_scraped_result: 'XX', result: '30' },
+  istMidnightish,
+);
+if (!dwOpen) {
+  console.error('FAIL Desawar should be open at 00:39 IST', nextDrawWindow('DW', istMidnightish));
+  failed++;
+}
+if (fbOpen) {
+  console.error('FAIL Faridabad should be closed at 00:39 IST', nextDrawWindow('FB', istMidnightish));
+  failed++;
+}
+
+if (formatMarketRange('DW') !== '(06:00 am - 05:00 am)') {
+  console.error('FAIL range DW', formatMarketRange('DW'));
+  failed++;
+}
+
 if (failed) {
   console.error(`Failed ${failed}`);
   process.exit(1);
 }
-console.log('All V2 crossing/cap checks passed');
+console.log('All V2 crossing/cap/schedule checks passed');

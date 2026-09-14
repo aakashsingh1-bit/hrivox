@@ -2,6 +2,12 @@ import { useCallback, useEffect, useState } from 'react';
 import { useAuth } from '@/lib/auth';
 import { HARF_SHORT_CODE, supabase, type Game } from '@/lib/supabase';
 import { requestMarketResults } from '@/lib/results';
+import {
+  displayResultDigit,
+  formatMarketRange,
+  isMarketBettingOpen,
+  nextDrawWindow,
+} from '@/lib/marketSchedule';
 import { Coins } from 'lucide-react';
 
 type Props = {
@@ -9,25 +15,27 @@ type Props = {
 };
 
 function formatRange(game: Game) {
+  const official = formatMarketRange(game.short_code);
+  if (official) return official;
+  const win = nextDrawWindow(game.short_code);
+  if (win) return `(${win.openLabel} - ${win.drawLabel})`;
   const end = game.next_result_at ? new Date(game.next_result_at) : null;
-  const start = end ? new Date(end.getTime() - 60 * 60 * 1000) : null;
+  if (!end) return '';
   const fmt = (d: Date) =>
     d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true }).toLowerCase();
-  if (start && end) return `(${fmt(start)} - ${fmt(end)})`;
-  return '(Hourly)';
-}
-
-function isBettingOpen(game: Game, now: number) {
-  if (!game.is_active) return false;
-  if (!game.next_result_at) return game.is_active;
-  const ms = new Date(game.next_result_at).getTime() - now;
-  return ms > 30000;
+  return `(${fmt(end)})`;
 }
 
 export function GamesListScreen({ onOpenGame }: Props) {
   const { profile } = useAuth();
   const [games, setGames] = useState<Game[]>([]);
   const [now, setNow] = useState(Date.now());
+  const [toast, setToast] = useState('');
+
+  const notify = (msg: string) => {
+    setToast(msg);
+    window.setTimeout(() => setToast(''), 2800);
+  };
 
   const loadGames = useCallback(async () => {
     try {
@@ -39,15 +47,18 @@ export function GamesListScreen({ onOpenGame }: Props) {
     if (data) {
       const list = (data as Game[]).filter((g) => g.short_code !== HARF_SHORT_CODE);
       setGames(list);
-      const anyDue = list.some(
-        (g) => g.next_result_at && new Date(g.next_result_at).getTime() <= Date.now() + 15000,
-      );
+      const anyDue = list.some((g) => {
+        const win = nextDrawWindow(g.short_code);
+        if (win && win.drawMs <= Date.now() + 15000) return true;
+        return Boolean(g.next_result_at && new Date(g.next_result_at).getTime() <= Date.now() + 15000);
+      });
       if (anyDue) void requestMarketResults();
     }
   }, []);
 
   useEffect(() => {
     void loadGames();
+    void requestMarketResults().then(() => void loadGames());
     const tick = window.setInterval(() => setNow(Date.now()), 1000);
     const reload = window.setInterval(() => {
       void loadGames();
@@ -82,33 +93,35 @@ export function GamesListScreen({ onOpenGame }: Props) {
       </header>
 
       <p className="market-list-hint">
-        Green = betting open. Red = result out (digit shown). After you bet, stay on the market screen to see
-        win/loss.
+        Green = betting open. Red = closed / result out (digit shown). Tap a red market for “bet closed”.
       </p>
 
       <div className="market-green-list">
         {games.map((g) => {
-          const open = isBettingOpen(g, now);
-          const resultShown = Boolean(g.result) && !open;
-          const rowClass = !g.is_active ? 'off' : resultShown || !open ? 'result-out' : 'open-bet';
+          const open = isMarketBettingOpen(g, now);
+          const digit = displayResultDigit(g);
+          const rowClass = !g.is_active ? 'off' : open ? 'open-bet' : 'result-out';
           return (
             <button
               key={g.id}
               type="button"
               className={`market-green-row ${rowClass}`}
-              onClick={() => open && onOpenGame(g.id)}
-              disabled={!open}
+              onClick={() => {
+                if (open) onOpenGame(g.id);
+                else notify('bet closed');
+              }}
             >
               <span>
                 {g.name.toUpperCase()} {formatRange(g)}
-                {g.result ? ` · ${g.result}` : ''}
-                {!g.is_active ? ' · OFF' : !open ? ' · CLOSED' : ''}
+                {!open && digit ? ` · ${digit}` : ''}
+                {!g.is_active ? ' · OFF' : ''}
               </span>
             </button>
           );
         })}
         {games.length === 0 && <p className="empty-state">No markets loaded.</p>}
       </div>
+      {toast && <div className="toast">{toast}</div>}
     </div>
   );
 }

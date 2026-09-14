@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { ArrowLeft, Clock3 } from 'lucide-react';
 import { isHarfGame, supabase, formatCountdown, type Game } from '@/lib/supabase';
+import { formatMarketRange, isMarketBettingOpen, nextDrawWindow } from '@/lib/marketSchedule';
 
 export function TimingsScreen({ onBack }: { onBack: () => void }) {
   const [games, setGames] = useState<Game[]>([]);
@@ -31,24 +32,35 @@ export function TimingsScreen({ onBack }: { onBack: () => void }) {
       </div>
 
       <p className="info-lead">
-        Play Harf and all 5 markets run on a continuous <b>1-hour cycle</b>. Next result countdown is live below.
+        Markets follow satta-king draw clocks (not hourly). Green window = day open → draw. Play Harf stays on its
+        own cycle.
       </p>
 
       <div className="timing-list">
         {games.map((g) => {
-          const ms = g.next_result_at ? new Date(g.next_result_at).getTime() - now : 0;
+          const win = !isHarfGame(g) ? nextDrawWindow(g.short_code, now) : null;
+          const ms = win
+            ? win.drawMs - now
+            : g.next_result_at
+              ? new Date(g.next_result_at).getTime() - now
+              : 0;
+          const open = isHarfGame(g)
+            ? g.is_active && ms > 30000
+            : isMarketBettingOpen(g, now);
+          const range = !isHarfGame(g) ? formatMarketRange(g.short_code) : '';
           return (
             <div key={g.id} className={`timing-card ${g.is_active ? '' : 'off'}`}>
               <div className="timing-left">
                 <strong>{isHarfGame(g) ? 'Play Harf' : g.name}</strong>
                 <small>
-                  {isHarfGame(g) ? 'HARF' : g.short_code} · Last: {g.result || '—'}
+                  {isHarfGame(g) ? 'HARF' : g.short_code}
+                  {range ? ` · ${range}` : ''} · Last: {g.result || '—'}
                 </small>
               </div>
               <div className="timing-right">
                 <Clock3 size={14} />
                 <b>{formatCountdown(ms)}</b>
-                <span className={`timing-badge ${g.is_active ? 'on' : 'off'}`}>{g.is_active ? 'LIVE' : 'OFF'}</span>
+                <span className={`timing-badge ${open ? 'on' : 'off'}`}>{open ? 'OPEN' : 'CLOSED'}</span>
               </div>
             </div>
           );
@@ -58,7 +70,10 @@ export function TimingsScreen({ onBack }: { onBack: () => void }) {
 
       <div className="info-callout">
         <strong>Close window</strong>
-        <p>Bets are blocked in the final 30 seconds before each result is published.</p>
+        <p>
+          Bets are blocked in the final 30 seconds before each draw. Jodi / Jantari / Crossing: min ₹100, no
+          final-hour cap.
+        </p>
       </div>
     </div>
   );
