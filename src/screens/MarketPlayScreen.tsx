@@ -322,6 +322,14 @@ export function MarketPlayScreen({ gameId, onBack }: Props) {
 
       {finalHour && <p className="final-hour-banner">Final hour: max Rs 200 per number</p>}
 
+      {game.result &&
+        game.next_result_at &&
+        new Date(game.next_result_at).getTime() <= now && (
+          <p className="mp-result-red market-last-result">
+            Result: <strong>{String(game.result).padStart(2, '0')}</strong>
+          </p>
+        )}
+
       <div className="market-play-body">
         {tab === 'open' && (
           <>

@@ -83,16 +83,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const authHeader = req.headers.authorization || '';
   const bearer = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
-  if (bearer && anonKey) {
-    const userClient = createClient(supabaseUrl, anonKey, {
-      global: { headers: { Authorization: `Bearer ${bearer}` } },
-    });
-    const { data: userData } = await userClient.auth.getUser();
-    if (!userData?.user && bearer !== serviceKey) {
+  const isVercelCron = req.headers['x-vercel-cron'] === '1';
+  if (!isVercelCron) {
+    if (bearer && anonKey) {
+      const userClient = createClient(supabaseUrl, anonKey, {
+        global: { headers: { Authorization: `Bearer ${bearer}` } },
+      });
+      const { data: userData } = await userClient.auth.getUser();
+      if (!userData?.user && bearer !== serviceKey) {
+        return res.status(401).json({ error: 'Unauthorized' });
+      }
+    } else if (bearer !== serviceKey) {
       return res.status(401).json({ error: 'Unauthorized' });
     }
-  } else if (bearer !== serviceKey) {
-    return res.status(401).json({ error: 'Unauthorized' });
   }
 
   try {

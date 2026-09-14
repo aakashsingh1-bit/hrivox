@@ -178,7 +178,10 @@ button:focus-visible, input:focus-visible { outline: 3px solid rgba(39, 154, 224
 .result-name { display: flex; align-items: center; gap: 8px; color: #3193cf; font: 700 20px 'Space Grotesk'; }
 .result-name i { width: 11px; height: 11px; border-radius: 50%; background: #49bf82; }
 .result-focus > strong {
-  margin: 16px 0 6px; color: #2d92d3; font: 700 72px/.8 'Space Grotesk'; letter-spacing: -.06em;
+  margin: 16px 0 6px; color: #d32f2f; font: 700 72px/.8 'Space Grotesk'; letter-spacing: -.06em;
+}
+.result-focus > strong.is-pending {
+  color: #2d92d3;
 }
 .result-sub { color: #8491a3; font-size: 11px; }
 
@@ -1154,6 +1157,12 @@ button:focus-visible, input:focus-visible { outline: 3px solid rgba(39, 154, 224
 }
 .mp-stat-row b { font-size: 15px; font-weight: 800; color: #123; }
 .mp-result-red { color: #d32f2f !important; }
+.market-last-result {
+  margin: 0 12px 8px;
+  text-align: center;
+  font: 700 18px/1.2 'Space Grotesk', system-ui, sans-serif;
+}
+.market-last-result strong { font-size: 28px; letter-spacing: 0.04em; }
 
 .waiting-result-banner {
   margin: 0;

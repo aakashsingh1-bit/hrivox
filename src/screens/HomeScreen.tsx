@@ -110,7 +110,7 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: Tab) => void }) {
             <div className="result-name">
               <i /> {isHarfGame(game) ? 'HARF' : game.short_code || game.name}
             </div>
-            <strong>{game.result || '--'}</strong>
+            <strong className={game.result ? undefined : 'is-pending'}>{game.result || '--'}</strong>
             <small className="result-sub">
               {isHarfGame(game) ? 'Play Harf' : game.name} · Next {formatCountdown(nextMs)}
             </small>

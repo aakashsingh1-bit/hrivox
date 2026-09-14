@@ -36,9 +36,9 @@ export function HowItWorksScreen({ onBack }: { onBack: () => void }) {
           <div>
             <strong>Where to see the result</strong>
             <p>
-              After Continue, stay on the market screen: Wallet / Last result / Next countdown and your bet list
-              update live. When the official result is published you get a win/lose popup. The Play Game list
-              shows the digit in <b>red</b>. Also: Home, Account history, More → Previous results (last 1 month).
+              After Continue, stay on the market screen. When the official result is published you get a
+              win/lose popup. The Play Game list and market screen show the digit in <b>red</b>. Also: Home,
+              Account history, More → Previous results (last 1 month).
             </p>
           </div>
         </li>
