@@ -100,14 +100,36 @@ Deno.serve(async (req) => {
 
     const admin = createClient(supabaseUrl, serviceKey);
 
-    const res = await fetch('https://satta-king-fast.com/', {
-      headers: {
-        'User-Agent': 'HRIVOX900-ResultBot/1.0',
-        Accept: 'text/html',
-      },
-    });
+    // Site often blocks datacenter/bot UAs with 403 — use a normal browser profile
+    const browserHeaders: Record<string, string> = {
+      'User-Agent':
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+      Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+      'Accept-Language': 'en-IN,en-US;q=0.9,en;q=0.8',
+      'Cache-Control': 'no-cache',
+      Pragma: 'no-cache',
+      'Upgrade-Insecure-Requests': '1',
+      Referer: 'https://www.google.com/',
+    };
+
+    const sourceUrl = Deno.env.get('RESULT_SOURCE_URL') || 'https://satta-king-fast.com/';
+    let res = await fetch(sourceUrl, { headers: browserHeaders, redirect: 'follow' });
+
+    // One retry without Referer if first attempt blocked
+    if (res.status === 403 || res.status === 429) {
+      const { Referer: _r, ...rest } = browserHeaders;
+      res = await fetch(sourceUrl, { headers: rest, redirect: 'follow' });
+    }
+
     if (!res.ok) {
-      return new Response(JSON.stringify({ error: `Fetch failed ${res.status}` }), { status: 502 });
+      return new Response(
+        JSON.stringify({
+          error: `Fetch failed ${res.status}`,
+          hint:
+            'Source site blocked the server IP. Use Admin Override for now, or set RESULT_SOURCE_URL secret to an allowed mirror.',
+        }),
+        { status: 502, headers: { 'Content-Type': 'application/json' } },
+      );
     }
     const html = await res.text();
     const parsed = parseResults(html);
