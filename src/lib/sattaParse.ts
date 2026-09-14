@@ -26,7 +26,6 @@ export function parseSattaKingHtml(html: string): Record<string, string> {
     }
   }
 
-  // Monthly chart last data row: DATE DSWR FRBD GZBD GALI
   const chartRows = [
     ...html.matchAll(
       /<tr[^>]*Class=["']day-number["'][^>]*>\s*<td[^>]*>\s*(\d{1,2})\s*<\/td>\s*<td[^>]*>\s*([^<]+)<\/td>\s*<td[^>]*>\s*([^<]+)<\/td>\s*<td[^>]*>\s*([^<]+)<\/td>\s*<td[^>]*>\s*([^<]+)<\/td>/gi,

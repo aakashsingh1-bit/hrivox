@@ -1,13 +1,70 @@
 import { createClient } from '@supabase/supabase-js';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { BROWSER_FETCH_HEADERS, lookupParsedResult, parseSattaKingHtml } from '../src/lib/sattaParse';
+
+/** Inlined parser — Vercel ESM cannot import ../src (ERR_MODULE_NOT_FOUND). */
+function parseSattaKingHtml(html: string): Record<string, string> {
+  const out: Record<string, string> = {};
+  const normalize = (s: string) =>
+    s
+      .toUpperCase()
+      .replace(/[^A-Z0-9]+/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+  const rowRe =
+    /class=["']game-result[^"']*["'][\s\S]*?class=["']game-name["'][^>]*>\s*([^<]+?)\s*<\/h3>[\s\S]*?class=["']today-number["'][\s\S]*?<h3>\s*([^<]+?)\s*<\/h3>/gi;
+
+  let m: RegExpExecArray | null;
+  while ((m = rowRe.exec(html)) !== null) {
+    const name = normalize(m[1]);
+    const today = m[2].trim();
+    if (!name || name.includes('SHOW YOUR GAME')) continue;
+    if (/^\d{1,2}$/.test(today)) out[name] = today.padStart(2, '0');
+  }
+
+  const chartRows = [
+    ...html.matchAll(
+      /<tr[^>]*Class=["']day-number["'][^>]*>\s*<td[^>]*>\s*(\d{1,2})\s*<\/td>\s*<td[^>]*>\s*([^<]+)<\/td>\s*<td[^>]*>\s*([^<]+)<\/td>\s*<td[^>]*>\s*([^<]+)<\/td>\s*<td[^>]*>\s*([^<]+)<\/td>/gi,
+    ),
+  ];
+  if (chartRows.length) {
+    const last = chartRows[chartRows.length - 1];
+    for (const [n, v] of [
+      ['DESAWAR', last[2].trim()],
+      ['FARIDABAD', last[3].trim()],
+      ['GHAZIABAD', last[4].trim()],
+      ['GALI', last[5].trim()],
+    ] as const) {
+      if (/^\d{1,2}$/.test(v)) out[n] = v.padStart(2, '0');
+    }
+  }
+  return out;
+}
+
+function lookupParsedResult(parsed: Record<string, string>, externalName: string): string | null {
+  const key = externalName
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (parsed[key]) return parsed[key];
+  for (const [n, v] of Object.entries(parsed)) {
+    if (n.includes(key) || key.includes(n)) return v;
+  }
+  return null;
+}
+
+const BROWSER_FETCH_HEADERS: Record<string, string> = {
+  'User-Agent':
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+  Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+  'Accept-Language': 'en-IN,en-US;q=0.9,en;q=0.8',
+  Referer: 'https://www.google.com/',
+};
 
 /**
  * Vercel serverless scrape — satta-king often blocks Supabase Edge IPs (403).
- * Set in Vercel Project → Settings → Environment Variables:
- *   SUPABASE_URL (or VITE_SUPABASE_URL)
- *   SUPABASE_SERVICE_ROLE_KEY
- *   VITE_SUPABASE_ANON_KEY (for JWT check)
+ * Env: SUPABASE_URL (or VITE_SUPABASE_URL), SUPABASE_SERVICE_ROLE_KEY, VITE_SUPABASE_ANON_KEY
  */
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST' && req.method !== 'GET') {
@@ -35,7 +92,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(401).json({ error: 'Unauthorized' });
     }
   } else if (bearer !== serviceKey) {
-    // Allow service role for cron; otherwise require user token
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
