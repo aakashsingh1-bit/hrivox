@@ -62,6 +62,65 @@ function fromLocalInputValue(local: string): string | null {
   return d.toISOString();
 }
 
+type BetSlipGroup = {
+  key: string;
+  game_id: string;
+  bet_kind: string | null | undefined;
+  status: string;
+  created_at: string;
+  entries: { number: number; amount: number; payout: number }[];
+  totalAmount: number;
+  totalPayout: number;
+};
+
+/** Group one Continue / place_bets batch into a single slip card. */
+function groupUserBetSlips(bets: Bet[]): BetSlipGroup[] {
+  const buckets = new Map<string, BetSlipGroup>();
+  const ordered: BetSlipGroup[] = [];
+
+  for (const bet of bets) {
+    const t = new Date(bet.created_at).getTime();
+    const bucket = Math.floor(t / 2000); // same ~2s window = one place
+    const key = `${bet.game_id}|${bet.bet_kind || 'jodi'}|${bet.status}|${bucket}`;
+    let group = buckets.get(key);
+    if (!group) {
+      group = {
+        key,
+        game_id: bet.game_id,
+        bet_kind: bet.bet_kind,
+        status: bet.status,
+        created_at: bet.created_at,
+        entries: [],
+        totalAmount: 0,
+        totalPayout: 0,
+      };
+      buckets.set(key, group);
+      ordered.push(group);
+    }
+    group.entries.push({
+      number: bet.selected_number,
+      amount: bet.amount,
+      payout: bet.payout || 0,
+    });
+    group.totalAmount += bet.amount;
+    group.totalPayout += bet.payout || 0;
+    if (new Date(bet.created_at) < new Date(group.created_at)) {
+      group.created_at = bet.created_at;
+    }
+  }
+
+  for (const g of ordered) {
+    g.entries.sort((a, b) => a.number - b.number);
+  }
+  return ordered;
+}
+
+function formatSlipNumbers(entries: BetSlipGroup['entries']) {
+  return entries
+    .map((e) => `${String(e.number).padStart(2, '0')}(${e.amount})`)
+    .join(', ');
+}
+
 export function AdminScreen({ onBack }: { onBack?: () => void }) {
   const { profile, signOut } = useAuth();
   const [section, setSection] = useState<AdminSection>('overview');
@@ -803,33 +862,34 @@ export function AdminScreen({ onBack }: { onBack?: () => void }) {
                         <p className="empty-state">No bets in this period.</p>
                       ) : (
                         <div className="admin-bet-cards">
-                          {userBets.map((bet) => {
-                            const game = games.find((g) => g.id === bet.game_id);
+                          {groupUserBetSlips(userBets).map((slip) => {
+                            const game = games.find((g) => g.id === slip.game_id);
+                            const nums = formatSlipNumbers(slip.entries);
                             return (
-                              <div key={bet.id} className="admin-bet-card">
-                                <span className="result-digit">{bet.selected_number}</span>
-                                <div>
+                              <div key={slip.key} className="admin-bet-card admin-slip-card">
+                                <div className="admin-slip-body">
                                   <strong>
-                                    {gameLabel(game)} · {kindLabel(bet.bet_kind)}
+                                    {gameLabel(game)} · {kindLabel(slip.bet_kind)}
                                   </strong>
+                                  <p className="admin-slip-nums">{nums}</p>
                                   <small>
-                                    Number {String(bet.selected_number).padStart(2, '0')} · {bet.amount}{' '}
-                                    coins · {bet.status}
-                                    {bet.status === 'won' ? ` · +${bet.payout}` : ''}
+                                    {slip.entries.length} number{slip.entries.length === 1 ? '' : 's'} · Total{' '}
+                                    {slip.totalAmount} coins · {slip.status}
+                                    {slip.status === 'won' ? ` · +${slip.totalPayout}` : ''}
                                     <br />
-                                    {new Date(bet.created_at).toLocaleString()}
+                                    {new Date(slip.created_at).toLocaleString()}
                                   </small>
                                 </div>
                                 <b
                                   className={
-                                    bet.status === 'won'
+                                    slip.status === 'won'
                                       ? 'text-green'
-                                      : bet.status === 'lost'
+                                      : slip.status === 'lost'
                                         ? 'text-red'
                                         : ''
                                   }
                                 >
-                                  {bet.status}
+                                  {slip.status}
                                 </b>
                               </div>
                             );

@@ -934,6 +934,19 @@ button:focus-visible, input:focus-visible { outline: 3px solid rgba(39, 154, 224
   margin: 0;
   font-size: 18px;
 }
+.admin-slip-card {
+  align-items: flex-start;
+}
+.admin-slip-body {
+  flex: 1;
+  min-width: 0;
+}
+.admin-slip-nums {
+  margin: 6px 0 4px;
+  font: 700 13px/1.45 'Space Grotesk', 'DM Sans', sans-serif;
+  color: #162134;
+  word-break: break-word;
+}
 .digit-totals-label {
   margin: 12px 0 6px; color: #6e7a8d; font-size: 11px; font-weight: 700;
   display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
