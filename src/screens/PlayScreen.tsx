@@ -192,7 +192,10 @@ export function PlayScreen({ gameId, mode, onBack }: Props) {
 
     if (wonOnly.length) {
       const stake = wonOnly.reduce((s, b) => s + b.amount, 0);
-      const payout = wonOnly.reduce((s, b) => s + (b.payout || b.amount * 8), 0);
+      const payout = wonOnly.reduce(
+        (s, b) => s + (b.payout || b.amount * (game?.payout_multiplier || 8)),
+        0,
+      );
       setOutcome({ type: 'won', digit: winningDigit, stake, payout });
       sfx(() => playWin(winningDigit));
     } else if (lostOnly.length) {
@@ -326,7 +329,9 @@ export function PlayScreen({ gameId, mode, onBack }: Props) {
                 Result <b>{outcome.digit}</b> · You won
               </p>
               <strong className="result-payout">+{outcome.payout} coins</strong>
-              <small>Stake {outcome.stake} · Payout 1 → 8</small>
+              <small>
+                Stake {outcome.stake} · Payout 1 → {game?.payout_multiplier ?? 8}
+              </small>
             </>
           ) : (
             <>

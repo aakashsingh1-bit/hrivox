@@ -159,7 +159,7 @@ export function MarketPlayScreen({ gameId, onBack }: Props) {
     const base = sanitizeCrossingDigits(crossBase);
     const amt = Number(crossAmt);
     if (base.length < 2) {
-      notify('Enter 2–8 digits (no same digit back-to-back)');
+      notify('Enter 2–8 unique digits (no digit repeats)');
       return;
     }
     if (!amt || amt < CROSSING_MIN_BET) {
@@ -395,7 +395,7 @@ export function MarketPlayScreen({ gameId, onBack }: Props) {
                 className="mp-plain-input"
                 value={crossBase}
                 onChange={(e) => setCrossBase(sanitizeCrossingDigits(e.target.value))}
-                placeholder="Number"
+                placeholder="Number (unique digits only)"
                 inputMode="numeric"
               />
               <input

@@ -53,12 +53,17 @@ if (assertMarketMinBet([9], CROSSING_MIN_BET) !== 'Minimum bet Rs 10') {
   console.error('FAIL crossing min');
   failed++;
 }
-if (sanitizeCrossingDigits('7656623') !== '765623') {
-  console.error('FAIL sanitize consecutive dup', sanitizeCrossingDigits('7656623'));
+if (sanitizeCrossingDigits('7656623') !== '76523') {
+  console.error('FAIL sanitize any-dup', sanitizeCrossingDigits('7656623'));
   failed++;
 }
-if (sanitizeCrossingDigits('7656232') !== '7656232') {
-  console.error('FAIL sanitize non-consecutive', sanitizeCrossingDigits('7656232'));
+if (sanitizeCrossingDigits('7656232') !== '76523') {
+  // second 6 and trailing 2 dropped
+  console.error('FAIL sanitize non-consecutive dup', sanitizeCrossingDigits('7656232'));
+  failed++;
+}
+if (sanitizeCrossingDigits('57349021') !== '57349021') {
+  console.error('FAIL sanitize unique ok', sanitizeCrossingDigits('57349021'));
   failed++;
 }
 

@@ -1,14 +1,16 @@
-/** Crossing V2: n² pairs from base digits; Jodi Cut drops doubles (55, 77, …). */
+/** Crossing V2: n² pairs from unique base digits; Jodi Cut drops doubles (55, 77, …). */
 
 export const MARKET_MIN_BET = 100;
 export const CROSSING_MIN_BET = 10;
 
-/** Strip digits; block consecutive same digit (7656232 ok, 7656623 not). Max 8 digits. */
+/** Digits only; each digit at most once (no repeats). Max 8 digits. */
 export function sanitizeCrossingDigits(raw: string, maxLen = 8): string {
   let out = '';
+  const seen = new Set<string>();
   for (const ch of raw.replace(/\D/g, '')) {
     if (out.length >= maxLen) break;
-    if (out.length > 0 && out[out.length - 1] === ch) continue;
+    if (seen.has(ch)) continue;
+    seen.add(ch);
     out += ch;
   }
   return out;

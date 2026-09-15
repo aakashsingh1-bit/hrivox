@@ -886,6 +886,25 @@ button:focus-visible, input:focus-visible { outline: 3px solid rgba(39, 154, 224
 }
 .admin-game-actions.stacked { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 12px; }
 .admin-game-actions.stacked .result-input { width: 100%; }
+.admin-payout-row {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+  align-items: end;
+  padding: 10px;
+  background: #f3f7fb;
+  border: 1px solid #d7e2ec;
+  border-radius: 8px;
+}
+.admin-payout-row label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #1a3a55;
+}
 .digit-totals-label {
   margin: 12px 0 6px; color: #6e7a8d; font-size: 11px; font-weight: 700;
   display: flex; align-items: center; gap: 6px; flex-wrap: wrap;

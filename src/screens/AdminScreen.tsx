@@ -52,6 +52,7 @@ export function AdminScreen({ onBack }: { onBack?: () => void }) {
   const [pendingBets, setPendingBets] = useState<Bet[]>([]);
   const [results, setResults] = useState<ResultHistory[]>([]);
   const [editResult, setEditResult] = useState<Record<string, string>>({});
+  const [payoutEdit, setPayoutEdit] = useState<Record<string, string>>({});
   const [creditAmt, setCreditAmt] = useState<Record<string, string>>({});
   const [search, setSearch] = useState('');
   const [toast, setToast] = useState('');
@@ -241,6 +242,25 @@ export function AdminScreen({ onBack }: { onBack?: () => void }) {
     }
     await loadAll();
     notify(`${game.name} auto-settled → ${data}`);
+  };
+
+  const savePayoutMultiplier = async (game: Game) => {
+    const raw = payoutEdit[game.id] ?? String(game.payout_multiplier ?? (isHarfGame(game) ? 8 : 90));
+    const mult = Number(raw);
+    if (!Number.isInteger(mult) || mult < 1 || mult > 1000) {
+      notify('Payout must be whole number 1–1000');
+      return;
+    }
+    const { error } = await supabase.rpc('admin_set_payout_multiplier', {
+      p_game_id: game.id,
+      p_multiplier: mult,
+    });
+    if (error) {
+      notify(error.message || 'Failed to update payout');
+      return;
+    }
+    await loadAll();
+    notify(`${game.name} payout set to 1 → ${mult}`);
   };
 
   const creditUser = async (userId: string) => {
@@ -461,6 +481,35 @@ export function AdminScreen({ onBack }: { onBack?: () => void }) {
                     )}
 
                     <div className="admin-game-actions stacked">
+                      {harf && (
+                        <div className="admin-payout-row">
+                          <label>
+                            Wheel payout (1 → N)
+                            <input
+                              className="result-input"
+                              value={
+                                payoutEdit[game.id] ??
+                                String(game.payout_multiplier ?? 8)
+                              }
+                              onChange={(e) =>
+                                setPayoutEdit((cur) => ({
+                                  ...cur,
+                                  [game.id]: e.target.value.replace(/[^0-9]/g, '').slice(0, 4),
+                                }))
+                              }
+                              inputMode="numeric"
+                              placeholder="8"
+                            />
+                          </label>
+                          <button
+                            type="button"
+                            className="publish-button"
+                            onClick={() => void savePayoutMultiplier(game)}
+                          >
+                            Save payout
+                          </button>
+                        </div>
+                      )}
                       <input
                         className="result-input"
                         placeholder={`Override 0-${maxOverride}`}

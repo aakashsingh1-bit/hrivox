@@ -34,6 +34,8 @@ export type Game = {
   external_name?: string | null;
   last_scraped_result?: string | null;
   last_scraped_at?: string | null;
+  /** Win payout: stake × this (Harf default 8, markets default 90). */
+  payout_multiplier?: number | null;
   created_at: string;
 };
 
