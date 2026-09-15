@@ -119,25 +119,37 @@ export type MarketOpenInput = {
   last_scraped_result?: string | null;
   result?: string | null;
   next_result_at?: string | null;
+  betting_closes_at?: string | null;
 };
 
+/** Effective last-bet cutoff (ms). Admin override wins; else draw − 30s. */
+export function effectiveBettingCloseMs(game: MarketOpenInput, now = Date.now()): number | null {
+  if (game.betting_closes_at) {
+    const t = new Date(game.betting_closes_at).getTime();
+    if (!Number.isNaN(t)) return t;
+  }
+  const win = nextDrawWindow(game.short_code, now);
+  if (win) return win.drawMs - 30_000;
+  if (game.next_result_at) return new Date(game.next_result_at).getTime() - 30_000;
+  return null;
+}
+
 /**
- * Green only when satta today is still XX/pending AND wall clock is inside
- * [day-open, draw − 30s). Digit on the board (result out) → red/closed immediately.
+ * Green only when satta today is still XX/pending AND before last-bet time
+ * (admin override or scrap draw − 30s). Digit out → red/closed.
  */
 export function isMarketBettingOpen(game: MarketOpenInput, now = Date.now()): boolean {
   if (!game.is_active) return false;
 
-  // Satta-king today column has a digit → that draw is over; stay closed until XX again.
   if (!isScrapedPending(game.last_scraped_result)) return false;
 
   const win = nextDrawWindow(game.short_code, now);
-  if (win) {
-    return now >= win.openMs && now < win.drawMs - 30_000;
-  }
+  if (win && now < win.openMs) return false;
 
-  if (!game.next_result_at) return game.is_active;
-  return new Date(game.next_result_at).getTime() - now > 30_000;
+  const closeMs = effectiveBettingCloseMs(game, now);
+  if (closeMs != null) return now < closeMs;
+
+  return game.is_active;
 }
 
 /** Digit to show on red (closed) rows — today's scrape, else last result. */

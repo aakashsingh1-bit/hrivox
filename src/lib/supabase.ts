@@ -36,6 +36,8 @@ export type Game = {
   last_scraped_at?: string | null;
   /** Win payout: stake × this (Harf default 8, markets default 90). */
   payout_multiplier?: number | null;
+  /** Admin override: last time users can bet. Null = scrap/schedule default. */
+  betting_closes_at?: string | null;
   created_at: string;
 };
 

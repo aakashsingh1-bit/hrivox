@@ -9,6 +9,8 @@ import {
   type Bet,
   type ResultHistory,
 } from '@/lib/supabase';
+import { effectiveBettingCloseMs, nextDrawWindow } from '@/lib/marketSchedule';
+import { kindLabel } from '@/lib/results';
 import {
   ShieldCheck,
   Users,
@@ -21,6 +23,7 @@ import {
 } from 'lucide-react';
 
 type AdminSection = 'overview' | 'games' | 'users' | 'bets' | 'results';
+type BetHistoryFilter = '24h' | '7d' | '30d' | 'all';
 
 const SECTIONS: { id: AdminSection; label: string }[] = [
   { id: 'overview', label: 'Overview' },
@@ -43,6 +46,22 @@ function gameLabel(game: Game | undefined) {
   return isHarfGame(game) ? `${game.name} · HARF` : `${game.short_code}`;
 }
 
+/** Local datetime-local value from ISO / Date. */
+function toLocalInputValue(iso: string | null | undefined) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function fromLocalInputValue(local: string): string | null {
+  if (!local.trim()) return null;
+  const d = new Date(local);
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toISOString();
+}
+
 export function AdminScreen({ onBack }: { onBack?: () => void }) {
   const { profile, signOut } = useAuth();
   const [section, setSection] = useState<AdminSection>('overview');
@@ -53,11 +72,16 @@ export function AdminScreen({ onBack }: { onBack?: () => void }) {
   const [results, setResults] = useState<ResultHistory[]>([]);
   const [editResult, setEditResult] = useState<Record<string, string>>({});
   const [payoutEdit, setPayoutEdit] = useState<Record<string, string>>({});
+  const [closeEdit, setCloseEdit] = useState<Record<string, string>>({});
   const [creditAmt, setCreditAmt] = useState<Record<string, string>>({});
   const [search, setSearch] = useState('');
   const [toast, setToast] = useState('');
   const [now, setNow] = useState(Date.now());
   const [selectedGameId, setSelectedGameId] = useState<string | null>(null);
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+  const [userBets, setUserBets] = useState<Bet[]>([]);
+  const [userBetFilter, setUserBetFilter] = useState<BetHistoryFilter>('24h');
+  const [userBetsLoading, setUserBetsLoading] = useState(false);
 
   const loadPendingForGame = async (gameId: string | null) => {
     if (!gameId) {
@@ -261,6 +285,72 @@ export function AdminScreen({ onBack }: { onBack?: () => void }) {
     }
     await loadAll();
     notify(`${game.name} payout set to 1 → ${mult}`);
+  };
+
+  const saveBettingClose = async (game: Game) => {
+    const local = closeEdit[game.id] ?? toLocalInputValue(game.betting_closes_at);
+    const iso = fromLocalInputValue(local);
+    if (!iso) {
+      notify('Pick a valid last-bet date/time');
+      return;
+    }
+    const { error } = await supabase.rpc('admin_set_betting_closes_at', {
+      p_game_id: game.id,
+      p_closes_at: iso,
+    });
+    if (error) {
+      notify(error.message || 'Failed to set last bet time');
+      return;
+    }
+    await loadAll();
+    notify(`${game.name} last bet time saved`);
+  };
+
+  const clearBettingClose = async (game: Game) => {
+    const { error } = await supabase.rpc('admin_set_betting_closes_at', {
+      p_game_id: game.id,
+      p_closes_at: null,
+    });
+    if (error) {
+      notify(error.message || 'Failed to clear');
+      return;
+    }
+    setCloseEdit((cur) => ({ ...cur, [game.id]: '' }));
+    await loadAll();
+    notify(`${game.name} back to scrap default close`);
+  };
+
+  const loadUserBets = async (userId: string, filter: BetHistoryFilter) => {
+    setUserBetsLoading(true);
+    let q = supabase
+      .from('bets')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(500);
+    const sinceMs =
+      filter === '24h'
+        ? Date.now() - 24 * 60 * 60 * 1000
+        : filter === '7d'
+          ? Date.now() - 7 * 24 * 60 * 60 * 1000
+          : filter === '30d'
+            ? Date.now() - 30 * 24 * 60 * 60 * 1000
+            : null;
+    if (sinceMs) q = q.gte('created_at', new Date(sinceMs).toISOString());
+    const { data, error } = await q;
+    setUserBetsLoading(false);
+    if (error) {
+      notify(error.message || 'Could not load bets');
+      setUserBets([]);
+      return;
+    }
+    setUserBets((data as Bet[]) || []);
+  };
+
+  const openUser = (userId: string) => {
+    setSelectedUserId(userId);
+    setUserBetFilter('24h');
+    void loadUserBets(userId, '24h');
   };
 
   const creditUser = async (userId: string) => {
@@ -510,6 +600,61 @@ export function AdminScreen({ onBack }: { onBack?: () => void }) {
                           </button>
                         </div>
                       )}
+                      {!harf && (
+                        <div className="admin-payout-row">
+                          <label>
+                            Last bet time (stop users)
+                            <input
+                              className="result-input"
+                              type="datetime-local"
+                              value={
+                                closeEdit[game.id] !== undefined
+                                  ? closeEdit[game.id]
+                                  : toLocalInputValue(game.betting_closes_at) ||
+                                    toLocalInputValue(
+                                      new Date(
+                                        effectiveBettingCloseMs(game, now) ?? Date.now(),
+                                      ).toISOString(),
+                                    )
+                              }
+                              onChange={(e) =>
+                                setCloseEdit((cur) => ({ ...cur, [game.id]: e.target.value }))
+                              }
+                            />
+                          </label>
+                          <div className="admin-close-actions">
+                            <button
+                              type="button"
+                              className="publish-button"
+                              onClick={() => void saveBettingClose(game)}
+                            >
+                              Save close
+                            </button>
+                            <button
+                              type="button"
+                              className="settle-button"
+                              onClick={() => void clearBettingClose(game)}
+                            >
+                              Scrap default
+                            </button>
+                          </div>
+                          <small className="admin-close-hint">
+                            {game.betting_closes_at
+                              ? `Override ON · closes ${new Date(game.betting_closes_at).toLocaleString()}`
+                              : `Default scrap · closes ${
+                                  (() => {
+                                    const ms = effectiveBettingCloseMs(game, now);
+                                    const win = nextDrawWindow(game.short_code, now);
+                                    return ms
+                                      ? new Date(ms).toLocaleString()
+                                      : win
+                                        ? win.drawLabel
+                                        : '—';
+                                  })()
+                                }`}
+                          </small>
+                        </div>
+                      )}
                       <input
                         className="result-input"
                         placeholder={`Override 0-${maxOverride}`}
@@ -554,52 +699,148 @@ export function AdminScreen({ onBack }: { onBack?: () => void }) {
         {section === 'users' && (
           <section className="admin-pane">
             <h2 className="admin-pane-title">User management</h2>
-            <input
-              className="admin-search"
-              placeholder="Search name, phone, or id..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-            <div className="admin-user-cards">
-              {filteredUsers.map((u) => (
-                <div key={u.id} className="admin-user-card">
-                  <div>
-                    <strong>
-                      {u.display_name}
-                      {u.is_admin && <b className="admin-tag">ADMIN</b>}
-                    </strong>
-                    <small>
-                      {u.phone || 'N/A'} · {u.coins} coins
-                    </small>
-                  </div>
-                  <div className="credit-row">
-                    <input
-                      placeholder="+/- coins"
-                      value={creditAmt[u.id] ?? ''}
-                      onChange={(e) =>
-                        setCreditAmt((c) => ({
-                          ...c,
-                          [u.id]: e.target.value.replace(/[^0-9\-]/g, '').slice(0, 7),
-                        }))
-                      }
-                      inputMode="numeric"
-                    />
-                    <button type="button" onClick={() => creditUser(u.id)}>
-                      Coins
-                    </button>
-                    <button
-                      type="button"
-                      className="deposit-btn"
-                      onClick={() => recordDeposit(u.id)}
-                      title="Record deposit (referral if ≥2000)"
-                    >
-                      Deposit
-                    </button>
-                  </div>
+            {!selectedUserId ? (
+              <>
+                <input
+                  className="admin-search"
+                  placeholder="Search name, phone, or id..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                />
+                <div className="admin-user-cards">
+                  {filteredUsers.map((u) => (
+                    <div key={u.id} className="admin-user-card">
+                      <button type="button" className="admin-user-open" onClick={() => openUser(u.id)}>
+                        <strong>
+                          {u.display_name}
+                          {u.is_admin && <b className="admin-tag">ADMIN</b>}
+                        </strong>
+                        <small>
+                          {u.phone || 'N/A'} · {u.coins} coins · tap for bet history
+                        </small>
+                      </button>
+                      <div className="credit-row">
+                        <input
+                          placeholder="+/- coins"
+                          value={creditAmt[u.id] ?? ''}
+                          onChange={(e) =>
+                            setCreditAmt((c) => ({
+                              ...c,
+                              [u.id]: e.target.value.replace(/[^0-9\-]/g, '').slice(0, 7),
+                            }))
+                          }
+                          inputMode="numeric"
+                        />
+                        <button type="button" onClick={() => creditUser(u.id)}>
+                          Coins
+                        </button>
+                        <button
+                          type="button"
+                          className="deposit-btn"
+                          onClick={() => recordDeposit(u.id)}
+                          title="Record deposit (referral if ≥2000)"
+                        >
+                          Deposit
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                  {filteredUsers.length === 0 && <p className="empty-state">No users found.</p>}
                 </div>
-              ))}
-              {filteredUsers.length === 0 && <p className="empty-state">No users found.</p>}
-            </div>
+              </>
+            ) : (
+              <div className="admin-user-detail">
+                {(() => {
+                  const u = users.find((x) => x.id === selectedUserId);
+                  if (!u) return <p className="empty-state">User not found.</p>;
+                  return (
+                    <>
+                      <div className="page-title-row tight">
+                        <button
+                          type="button"
+                          className="back-button"
+                          onClick={() => {
+                            setSelectedUserId(null);
+                            setUserBets([]);
+                          }}
+                          aria-label="Back"
+                        >
+                          <ArrowLeft size={18} />
+                        </button>
+                        <div>
+                          <span className="small-label">USER BETS</span>
+                          <h2>{u.display_name}</h2>
+                          <small>
+                            {u.phone || 'N/A'} · {u.coins} coins · {u.id.slice(0, 8)}
+                          </small>
+                        </div>
+                      </div>
+                      <div className="filter-chips tight">
+                        {(
+                          [
+                            { id: '24h' as const, label: 'Last 24h' },
+                            { id: '7d' as const, label: '7 days' },
+                            { id: '30d' as const, label: '30 days' },
+                            { id: 'all' as const, label: 'All' },
+                          ] as const
+                        ).map((f) => (
+                          <button
+                            key={f.id}
+                            type="button"
+                            className={userBetFilter === f.id ? 'on' : ''}
+                            onClick={() => {
+                              setUserBetFilter(f.id);
+                              void loadUserBets(u.id, f.id);
+                            }}
+                          >
+                            {f.label}
+                          </button>
+                        ))}
+                      </div>
+                      {userBetsLoading ? (
+                        <p className="empty-state">Loading bets…</p>
+                      ) : userBets.length === 0 ? (
+                        <p className="empty-state">No bets in this period.</p>
+                      ) : (
+                        <div className="admin-bet-cards">
+                          {userBets.map((bet) => {
+                            const game = games.find((g) => g.id === bet.game_id);
+                            return (
+                              <div key={bet.id} className="admin-bet-card">
+                                <span className="result-digit">{bet.selected_number}</span>
+                                <div>
+                                  <strong>
+                                    {gameLabel(game)} · {kindLabel(bet.bet_kind)}
+                                  </strong>
+                                  <small>
+                                    Number {String(bet.selected_number).padStart(2, '0')} · {bet.amount}{' '}
+                                    coins · {bet.status}
+                                    {bet.status === 'won' ? ` · +${bet.payout}` : ''}
+                                    <br />
+                                    {new Date(bet.created_at).toLocaleString()}
+                                  </small>
+                                </div>
+                                <b
+                                  className={
+                                    bet.status === 'won'
+                                      ? 'text-green'
+                                      : bet.status === 'lost'
+                                        ? 'text-red'
+                                        : ''
+                                  }
+                                >
+                                  {bet.status}
+                                </b>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </>
+                  );
+                })()}
+              </div>
+            )}
           </section>
         )}
 
