@@ -58,6 +58,7 @@ export function kindLabel(kind: string | null | undefined) {
   if (kind === 'open') return 'Open';
   if (kind === 'close') return 'Close';
   if (kind === 'jodi') return 'Jodi';
+  if (kind === 'crossing') return 'Crossing';
   return 'Bet';
 }
 

@@ -6,9 +6,11 @@ import { supabase, type Bet, type Game } from '@/lib/supabase';
 import { playBetOk, playLose, playTap, playWin } from '@/lib/sounds';
 import {
   assertMarketMinBet,
-  expandCrossingPair,
+  CROSSING_MIN_BET,
+  expandCrossing,
   JANTARI_DIGITS,
   MARKET_MIN_BET,
+  sanitizeCrossingDigits,
 } from '@/lib/crossing';
 import { isMarketBettingOpen, scrapedDigit } from '@/lib/marketSchedule';
 import {
@@ -43,8 +45,7 @@ export function MarketPlayScreen({ gameId, onBack }: Props) {
   const [openDigits, setOpenDigits] = useState<Record<number, string>>({});
   const [closeDigits, setCloseDigits] = useState<Record<number, string>>({});
   const [jodiCut, setJodiCut] = useState(false);
-  const [crossLeft, setCrossLeft] = useState('');
-  const [crossRight, setCrossRight] = useState('');
+  const [crossBase, setCrossBase] = useState('');
   const [crossAmt, setCrossAmt] = useState('');
   const [crossRows, setCrossRows] = useState<{ label: string; number: number; amount: number }[]>([]);
 
@@ -155,40 +156,32 @@ export function MarketPlayScreen({ gameId, onBack }: Props) {
       notify('bet closed');
       return;
     }
-    const left = crossLeft.replace(/\D/g, '').slice(0, 8);
-    const right = crossRight.replace(/\D/g, '').slice(0, 8);
+    const base = sanitizeCrossingDigits(crossBase);
     const amt = Number(crossAmt);
-    if (left.length < 1) {
-      notify('Enter number');
+    if (base.length < 2) {
+      notify('Enter 2–8 digits (no same digit back-to-back)');
       return;
     }
-    if (left.length < 2 && right.length < 1) {
-      notify('Enter 2+ digits or both number fields');
+    if (!amt || amt < CROSSING_MIN_BET) {
+      notify(`Minimum bet Rs ${CROSSING_MIN_BET}`);
       return;
     }
-    if (!amt || amt < MARKET_MIN_BET) {
-      notify(`Minimum bet Rs ${MARKET_MIN_BET}`);
-      return;
-    }
-    const { rows } = expandCrossingPair(left, right, amt, jodiCut);
+    const { rows } = expandCrossing(base, amt, jodiCut);
     if (!rows.length) {
       notify('No combinations');
       return;
     }
     setCrossRows((cur) => [...cur, ...rows]);
-    setCrossLeft('');
-    setCrossRight('');
+    setCrossBase('');
     setCrossAmt('');
   };
 
   const crossPreview = useMemo(() => {
-    const left = crossLeft.replace(/\D/g, '').slice(0, 8);
-    const right = crossRight.replace(/\D/g, '').slice(0, 8);
+    const base = sanitizeCrossingDigits(crossBase);
     const amt = Number(crossAmt) || 0;
-    if (left.length < 1 || amt < MARKET_MIN_BET) return null;
-    if (left.length < 2 && right.length < 1) return null;
-    return expandCrossingPair(left, right, amt, jodiCut);
-  }, [crossLeft, crossRight, crossAmt, jodiCut]);
+    if (base.length < 2 || amt < CROSSING_MIN_BET) return null;
+    return expandCrossing(base, amt, jodiCut);
+  }, [crossBase, crossAmt, jodiCut]);
 
   const buildBets = (): BetPayload[] => {
     if (tab === 'open') {
@@ -204,7 +197,7 @@ export function MarketPlayScreen({ gameId, onBack }: Props) {
       }
       return bets;
     }
-    return crossRows.map((r) => ({ number: r.number, amount: r.amount, kind: 'jodi' }));
+    return crossRows.map((r) => ({ number: r.number, amount: r.amount, kind: 'crossing' }));
   };
 
   const submit = async () => {
@@ -218,7 +211,8 @@ export function MarketPlayScreen({ gameId, onBack }: Props) {
       notify('Add at least one entry');
       return;
     }
-    const minErr = assertMarketMinBet(bets.map((b) => b.amount));
+    const minBet = tab === 'crossing' ? CROSSING_MIN_BET : MARKET_MIN_BET;
+    const minErr = assertMarketMinBet(bets.map((b) => b.amount), minBet);
     if (minErr) {
       notify(minErr);
       return;
@@ -397,23 +391,13 @@ export function MarketPlayScreen({ gameId, onBack }: Props) {
                 <input type="checkbox" checked={jodiCut} onChange={(e) => setJodiCut(e.target.checked)} />
                 Jodi Cut
               </label>
-              <div className="cross-nums">
-                <input
-                  value={crossLeft}
-                  onChange={(e) => setCrossLeft(e.target.value.replace(/[^0-9]/g, '').slice(0, 8))}
-                  placeholder="Number"
-                  inputMode="numeric"
-                />
-                <span className="cross-x" aria-hidden>
-                  x
-                </span>
-                <input
-                  value={crossRight}
-                  onChange={(e) => setCrossRight(e.target.value.replace(/[^0-9]/g, '').slice(0, 8))}
-                  placeholder="Number"
-                  inputMode="numeric"
-                />
-              </div>
+              <input
+                className="mp-plain-input"
+                value={crossBase}
+                onChange={(e) => setCrossBase(sanitizeCrossingDigits(e.target.value))}
+                placeholder="Number"
+                inputMode="numeric"
+              />
               <input
                 className="mp-plain-input"
                 value={crossAmt}

@@ -1,35 +1,27 @@
-/** Crossing V2: n² pairs from base digits; optional A×B; Jodi Cut drops doubles. */
+/** Crossing V2: n² pairs from base digits; Jodi Cut drops doubles (55, 77, …). */
 
 export const MARKET_MIN_BET = 100;
+export const CROSSING_MIN_BET = 10;
 
-export function expandCrossing(baseDigits: string, amount: number, jodiCut: boolean) {
-  return expandCrossingPair(baseDigits, '', amount, jodiCut);
+/** Strip digits; block consecutive same digit (7656232 ok, 7656623 not). Max 8 digits. */
+export function sanitizeCrossingDigits(raw: string, maxLen = 8): string {
+  let out = '';
+  for (const ch of raw.replace(/\D/g, '')) {
+    if (out.length >= maxLen) break;
+    if (out.length > 0 && out[out.length - 1] === ch) continue;
+    out += ch;
+  }
+  return out;
 }
 
-/** Left × Right digit product. Empty right → left × left (needs ≥2 digits). */
-export function expandCrossingPair(
-  leftDigits: string,
-  rightDigits: string,
-  amount: number,
-  jodiCut: boolean,
-) {
-  const empty = { rows: [] as { label: string; number: number; amount: number }[], total: 0, count: 0 };
-  const left = leftDigits
-    .replace(/\D/g, '')
-    .slice(0, 8)
-    .split('')
-    .map((d) => Number(d));
-  const rightRaw = rightDigits.replace(/\D/g, '').slice(0, 8);
-  const right = (rightRaw || leftDigits.replace(/\D/g, '').slice(0, 8))
-    .split('')
-    .map((d) => Number(d));
-
-  if (!left.length || !right.length) return empty;
-  if (!rightRaw && left.length < 2) return empty;
-
+export function expandCrossing(baseDigits: string, amount: number, jodiCut: boolean) {
+  const digits = sanitizeCrossingDigits(baseDigits, 8).split('').map((d) => Number(d));
+  if (digits.length < 2) {
+    return { rows: [] as { label: string; number: number; amount: number }[], total: 0, count: 0 };
+  }
   const rows: { label: string; number: number; amount: number }[] = [];
-  for (const a of left) {
-    for (const b of right) {
+  for (const a of digits) {
+    for (const b of digits) {
       if (jodiCut && a === b) continue;
       const number = a * 10 + b;
       rows.push({

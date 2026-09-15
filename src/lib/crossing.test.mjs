@@ -2,7 +2,13 @@
  * V2 Crossing expansion tests (run: node --experimental-strip-types src/lib/crossing.test.mjs)
  * or: node --input-type=module --experimental-strip-types src/lib/crossing.test.mjs
  */
-import { expandCrossing, assertBetAmountsAllowed, assertMarketMinBet } from './crossing.ts';
+import {
+  expandCrossing,
+  assertBetAmountsAllowed,
+  assertMarketMinBet,
+  sanitizeCrossingDigits,
+  CROSSING_MIN_BET,
+} from './crossing.ts';
 import { isMarketBettingOpen, nextDrawWindow, formatMarketRange } from './marketSchedule.ts';
 
 const cases = [
@@ -41,6 +47,18 @@ if (assertMarketMinBet([99]) !== 'Minimum bet Rs 100') {
 }
 if (assertMarketMinBet([100]) !== null) {
   console.error('FAIL market min ok');
+  failed++;
+}
+if (assertMarketMinBet([9], CROSSING_MIN_BET) !== 'Minimum bet Rs 10') {
+  console.error('FAIL crossing min');
+  failed++;
+}
+if (sanitizeCrossingDigits('7656623') !== '765623') {
+  console.error('FAIL sanitize consecutive dup', sanitizeCrossingDigits('7656623'));
+  failed++;
+}
+if (sanitizeCrossingDigits('7656232') !== '7656232') {
+  console.error('FAIL sanitize non-consecutive', sanitizeCrossingDigits('7656232'));
   failed++;
 }
 
