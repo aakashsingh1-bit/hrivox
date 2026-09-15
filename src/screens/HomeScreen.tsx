@@ -8,10 +8,12 @@ import {
   type Game,
   type Bet,
 } from '@/lib/supabase';
+import { MARKET_SCHEDULE, istWallToUtcMs, scrapedDigit, type MarketCode } from '@/lib/marketSchedule';
 import { Coins, ChevronRight, MessageCircle, RefreshCw, ShieldCheck } from 'lucide-react';
 import type { Tab } from '@/components/AppShell';
 
 const TILE_COLORS = ['purple', 'pink', 'cyan', 'green', 'orange'];
+const RESULT_VISIBLE_MS = 5 * 60 * 60 * 1000;
 
 function sortHomeGames(list: Game[]) {
   return [...list].sort((a, b) => {
@@ -19,6 +21,45 @@ function sortHomeGames(list: Game[]) {
     if (!isHarfGame(a) && isHarfGame(b)) return 1;
     return a.created_at.localeCompare(b.created_at);
   });
+}
+
+/** Last result digit only for 5 hours after publish/draw; then "-". */
+function homeResultDisplay(game: Game, now: number): string {
+  const digit =
+    scrapedDigit(game.last_scraped_result) ||
+    (game.result && /^\d{1,2}$/.test(String(game.result).trim())
+      ? String(game.result).trim()
+      : null);
+  if (!digit) return '-';
+
+  let at: number | null = null;
+  if (game.result_published_at) {
+    at = new Date(game.result_published_at).getTime();
+  } else if (scrapedDigit(game.last_scraped_result) && game.last_scraped_at) {
+    at = new Date(game.last_scraped_at).getTime();
+  } else {
+    const sch = MARKET_SCHEDULE[game.short_code as MarketCode];
+    if (sch) {
+      const IST = (5 * 60 + 30) * 60 * 1000;
+      const d = new Date(now + IST);
+      let y = d.getUTCFullYear();
+      let mo = d.getUTCMonth() + 1;
+      let day = d.getUTCDate();
+      let drawMs = istWallToUtcMs(y, mo, day, sch.drawHour, sch.drawMinute);
+      if (drawMs > now) {
+        const prev = new Date(Date.UTC(y, mo - 1, day) - 86400000);
+        y = prev.getUTCFullYear();
+        mo = prev.getUTCMonth() + 1;
+        day = prev.getUTCDate();
+        drawMs = istWallToUtcMs(y, mo, day, sch.drawHour, sch.drawMinute);
+      }
+      at = drawMs;
+    }
+  }
+
+  if (at == null || Number.isNaN(at)) return '-';
+  if (now - at > RESULT_VISIBLE_MS) return '-';
+  return digit.padStart(isHarfGame(game) ? 1 : 2, '0');
 }
 
 export function HomeScreen({ onNavigate }: { onNavigate: (tab: Tab) => void }) {
@@ -79,6 +120,7 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: Tab) => void }) {
     : game?.next_result_at
       ? new Date(game.next_result_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       : game?.schedule_time;
+  const focusResult = game ? homeResultDisplay(game, now) : '-';
 
   const userLabel = profile?.display_name ?? 'Player';
   const userCode = profile?.id ? profile.id.replace(/-/g, '').slice(0, 8) : '';
@@ -110,7 +152,7 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: Tab) => void }) {
             <div className="result-name">
               <i /> {isHarfGame(game) ? 'HARF' : game.short_code || game.name}
             </div>
-            <strong className={game.result ? undefined : 'is-pending'}>{game.result || '--'}</strong>
+            <strong className={focusResult === '-' ? 'is-pending' : undefined}>{focusResult}</strong>
             <small className="result-sub">
               {isHarfGame(game) ? 'Play Harf' : game.name} · Next {formatCountdown(nextMs)}
             </small>
@@ -124,25 +166,31 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: Tab) => void }) {
 
       <section className="games-section">
         <div className="game-scroller">
-          {games.map((item, index) => (
-            <button
-              key={item.id}
-              type="button"
-              className={`game-tile ${TILE_COLORS[index % 5]} ${selectedGame === index ? 'selected' : ''}`}
-              onClick={() => {
-                setSelectedGame(index);
-                onNavigate(isHarfGame(item) ? 'half' : 'play');
-              }}
-            >
-              <strong>{item.result || '--'}</strong>
-              <span>{isHarfGame(item) ? 'Play Harf' : item.name}</span>
-              <small>
-                {item.next_result_at
-                  ? new Date(item.next_result_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-                  : item.schedule_time}
-              </small>
-            </button>
-          ))}
+          {games.map((item, index) => {
+            const shown = homeResultDisplay(item, now);
+            return (
+              <button
+                key={item.id}
+                type="button"
+                className={`game-tile ${TILE_COLORS[index % 5]} ${selectedGame === index ? 'selected' : ''}`}
+                onClick={() => {
+                  setSelectedGame(index);
+                  onNavigate(isHarfGame(item) ? 'half' : 'play');
+                }}
+              >
+                <strong>{shown}</strong>
+                <span>{isHarfGame(item) ? 'Play Harf' : item.name}</span>
+                <small>
+                  {item.next_result_at
+                    ? new Date(item.next_result_at).toLocaleTimeString([], {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })
+                    : item.schedule_time}
+                </small>
+              </button>
+            );
+          })}
         </div>
       </section>
 
