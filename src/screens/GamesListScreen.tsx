@@ -4,7 +4,7 @@ import { HARF_SHORT_CODE, supabase, type Game } from '@/lib/supabase';
 import { requestMarketResults } from '@/lib/results';
 import {
   displayResultDigit,
-  formatMarketRange,
+  formatMarketListRange,
   isMarketBettingOpen,
   nextDrawWindow,
 } from '@/lib/marketSchedule';
@@ -13,18 +13,6 @@ import { Coins } from 'lucide-react';
 type Props = {
   onOpenGame: (gameId: string) => void;
 };
-
-function formatRange(game: Game) {
-  const official = formatMarketRange(game.short_code);
-  if (official) return official;
-  const win = nextDrawWindow(game.short_code);
-  if (win) return `(${win.openLabel} - ${win.drawLabel})`;
-  const end = game.next_result_at ? new Date(game.next_result_at) : null;
-  if (!end) return '';
-  const fmt = (d: Date) =>
-    d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true }).toLowerCase();
-  return `(${fmt(end)})`;
-}
 
 export function GamesListScreen({ onOpenGame }: Props) {
   const { profile } = useAuth();
@@ -117,7 +105,7 @@ export function GamesListScreen({ onOpenGame }: Props) {
               }}
             >
               <span>
-                {g.name.toUpperCase()} {formatRange(g)}
+                {g.name.toUpperCase()} {formatMarketListRange(g, now)}
                 {!open && digit ? ` · ${digit}` : ''}
                 {!g.is_active ? ' · OFF' : ''}
               </span>

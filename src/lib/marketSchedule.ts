@@ -98,6 +98,12 @@ export function formatMarketRange(shortCode: string): string {
   return `(${fmtIst12(sch.openHour, sch.openMinute)} - ${fmtIst12(sch.drawHour, sch.drawMinute)})`;
 }
 
+/** Format a UTC ms instant as IST 12h clock. */
+export function formatIstTimeFromMs(ms: number) {
+  const d = new Date(ms + IST_OFFSET_MS);
+  return fmtIst12(d.getUTCHours(), d.getUTCMinutes());
+}
+
 /** Today XX / missing → pending; digit → result out. */
 export function isScrapedPending(lastScraped: string | null | undefined): boolean {
   if (!lastScraped) return true;
@@ -122,16 +128,57 @@ export type MarketOpenInput = {
   betting_closes_at?: string | null;
 };
 
-/** Effective last-bet cutoff (ms). Admin override wins; else draw − 30s. */
+/** Effective last-bet cutoff (ms). Admin override wins until that round ends; else draw − 30s. */
 export function effectiveBettingCloseMs(game: MarketOpenInput, now = Date.now()): number | null {
+  const win = nextDrawWindow(game.short_code, now);
+
   if (game.betting_closes_at) {
     const t = new Date(game.betting_closes_at).getTime();
-    if (!Number.isNaN(t)) return t;
+    if (!Number.isNaN(t)) {
+      // Stale override from a previous round (before this window opened) → ignore, use scrap
+      if (win && t < win.openMs) {
+        /* fall through */
+      } else {
+        return t;
+      }
+    }
   }
-  const win = nextDrawWindow(game.short_code, now);
+
   if (win) return win.drawMs - 30_000;
   if (game.next_result_at) return new Date(game.next_result_at).getTime() - 30_000;
   return null;
+}
+
+/** True when admin override is active for the current round (not stale). */
+export function hasActiveBettingCloseOverride(game: MarketOpenInput, now = Date.now()): boolean {
+  if (!game.betting_closes_at) return false;
+  const t = new Date(game.betting_closes_at).getTime();
+  if (Number.isNaN(t)) return false;
+  const win = nextDrawWindow(game.short_code, now);
+  if (win && t < win.openMs) return false;
+  return true;
+}
+
+/**
+ * List label: day-open → effective last-bet (admin override if set, else scrap draw).
+ */
+export function formatMarketListRange(game: MarketOpenInput, now = Date.now()): string {
+  const sch = MARKET_SCHEDULE[game.short_code as MarketCode];
+  const openLabel = sch
+    ? fmtIst12(sch.openHour, sch.openMinute)
+    : nextDrawWindow(game.short_code, now)?.openLabel || '—';
+
+  if (hasActiveBettingCloseOverride(game, now) && game.betting_closes_at) {
+    const closeMs = new Date(game.betting_closes_at).getTime();
+    return `(${openLabel} - ${formatIstTimeFromMs(closeMs)})`;
+  }
+
+  const official = formatMarketRange(game.short_code);
+  if (official) return official;
+
+  const win = nextDrawWindow(game.short_code, now);
+  if (win) return `(${win.openLabel} - ${win.drawLabel})`;
+  return '';
 }
 
 /**

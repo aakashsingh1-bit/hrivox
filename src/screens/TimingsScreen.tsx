@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { ArrowLeft, Clock3 } from 'lucide-react';
 import { isHarfGame, supabase, formatCountdown, type Game } from '@/lib/supabase';
-import { formatMarketRange, isMarketBettingOpen, nextDrawWindow } from '@/lib/marketSchedule';
+import { formatMarketListRange, isMarketBettingOpen, nextDrawWindow } from '@/lib/marketSchedule';
 
 export function TimingsScreen({ onBack }: { onBack: () => void }) {
   const [games, setGames] = useState<Game[]>([]);
@@ -47,7 +47,7 @@ export function TimingsScreen({ onBack }: { onBack: () => void }) {
           const open = isHarfGame(g)
             ? g.is_active && ms > 30000
             : isMarketBettingOpen(g, now);
-          const range = !isHarfGame(g) ? formatMarketRange(g.short_code) : '';
+          const range = !isHarfGame(g) ? formatMarketListRange(g, now) : '';
           return (
             <div key={g.id} className={`timing-card ${g.is_active ? '' : 'off'}`}>
               <div className="timing-left">

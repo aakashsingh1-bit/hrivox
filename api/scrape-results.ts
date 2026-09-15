@@ -173,7 +173,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const admin = createClient(supabaseUrl, serviceKey);
     const { data: games, error: gErr } = await admin
       .from('games')
-      .select('id, name, short_code, external_name, next_result_at, is_active, result')
+      .select(
+        'id, name, short_code, external_name, next_result_at, is_active, result, betting_closes_at, last_scraped_result',
+      )
       .neq('short_code', 'HF')
       .eq('is_active', true);
 
@@ -181,6 +183,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const settled: { game: string; result: string }[] = [];
     const synced: { game: string; today: string; pending: boolean }[] = [];
+    const clearedClose: string[] = [];
     const skipped: string[] = [];
     const now = Date.now();
 
@@ -199,14 +202,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         patch.last_scraped_result = entry.today;
         patch.schedule_time = schedule_time;
         if (entry.pending && /^\d{1,2}$/.test(entry.yesterday)) {
-          // Keep last declared digit visible while today is XX
           patch.result = entry.yesterday;
         }
       } else {
         skipped.push(`${g.short_code}:no-board-row`);
       }
 
-      // Optional: refine next_result_at from scraped clock if it matches official day
       if (parsedClock && nextIso) {
         const p = istParts(now);
         let day = { y: p.y, mo: p.mo, day: p.day };
@@ -219,6 +220,26 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         patch.schedule_time = entry!.timeLabel;
       }
 
+      // Clear admin last-bet override after round ends → next cycle uses scrap default.
+      // Do NOT clear while override is still in the future (would reopen early).
+      const closeAt = g.betting_closes_at ? new Date(g.betting_closes_at).getTime() : NaN;
+      if (!Number.isNaN(closeAt)) {
+        const resultOut = entry ? !entry.pending : !isPendingScraped(g.last_scraped_result);
+        const nextDrawMs = patch.next_result_at
+          ? new Date(String(patch.next_result_at)).getTime()
+          : nextIso
+            ? new Date(nextIso).getTime()
+            : NaN;
+        // Round over: result digit out, OR close time passed and next draw already rolled forward past this close
+        const pastRound =
+          resultOut ||
+          (now >= closeAt && !Number.isNaN(nextDrawMs) && nextDrawMs - closeAt > 2 * 60 * 60 * 1000);
+        if (pastRound) {
+          patch.betting_closes_at = null;
+          clearedClose.push(g.short_code);
+        }
+      }
+
       await admin.from('games').update(patch).eq('id', g.id);
 
       if (!entry) continue;
@@ -229,7 +250,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         continue;
       }
 
-      // Result digit is out — settle if not already this digit
       if (String(g.result).padStart(2, '0') === entry.today) {
         skipped.push(`${g.short_code}:already-settled`);
         continue;
@@ -256,9 +276,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         .map((r) => ({ name: r.name, today: r.today, time: r.timeLabel })),
       synced,
       settled,
+      clearedClose,
       skipped,
     });
   } catch (e) {
     return res.status(500).json({ error: String(e) });
   }
+}
+
+function isPendingScraped(v: string | null | undefined) {
+  if (!v) return true;
+  const t = String(v).trim().toUpperCase();
+  return t === 'XX' || t === '--' || t === '' || !/^\d{1,2}$/.test(t);
 }

@@ -9,7 +9,7 @@ import {
   type Bet,
   type ResultHistory,
 } from '@/lib/supabase';
-import { effectiveBettingCloseMs, nextDrawWindow } from '@/lib/marketSchedule';
+import { effectiveBettingCloseMs, hasActiveBettingCloseOverride } from '@/lib/marketSchedule';
 import { kindLabel } from '@/lib/results';
 import {
   ShieldCheck,
@@ -353,16 +353,28 @@ export function AdminScreen({ onBack }: { onBack?: () => void }) {
       notify('Pick a valid last-bet date/time');
       return;
     }
+    // Prefer RPC; also write table directly so scrap cannot "lose" the value via UI confusion
     const { error } = await supabase.rpc('admin_set_betting_closes_at', {
       p_game_id: game.id,
       p_closes_at: iso,
     });
     if (error) {
-      notify(error.message || 'Failed to set last bet time');
-      return;
+      const { error: upErr } = await supabase
+        .from('games')
+        .update({ betting_closes_at: iso })
+        .eq('id', game.id);
+      if (upErr) {
+        notify(error.message || upErr.message || 'Failed to set last bet time');
+        return;
+      }
     }
+    setCloseEdit((cur) => {
+      const next = { ...cur };
+      delete next[game.id];
+      return next;
+    });
     await loadAll();
-    notify(`${game.name} last bet time saved`);
+    notify(`${game.name} last bet time saved (override ON)`);
   };
 
   const clearBettingClose = async (game: Game) => {
@@ -371,10 +383,20 @@ export function AdminScreen({ onBack }: { onBack?: () => void }) {
       p_closes_at: null,
     });
     if (error) {
-      notify(error.message || 'Failed to clear');
-      return;
+      const { error: upErr } = await supabase
+        .from('games')
+        .update({ betting_closes_at: null })
+        .eq('id', game.id);
+      if (upErr) {
+        notify(error.message || upErr.message || 'Failed to clear');
+        return;
+      }
     }
-    setCloseEdit((cur) => ({ ...cur, [game.id]: '' }));
+    setCloseEdit((cur) => {
+      const next = { ...cur };
+      delete next[game.id];
+      return next;
+    });
     await loadAll();
     notify(`${game.name} back to scrap default close`);
   };
@@ -698,17 +720,12 @@ export function AdminScreen({ onBack }: { onBack?: () => void }) {
                             </button>
                           </div>
                           <small className="admin-close-hint">
-                            {game.betting_closes_at
-                              ? `Override ON · closes ${new Date(game.betting_closes_at).toLocaleString()}`
-                              : `Default scrap · closes ${
+                            {hasActiveBettingCloseOverride(game, now)
+                              ? `Override ON · users stop at ${new Date(game.betting_closes_at!).toLocaleString()} (scrap cannot change this until round ends)`
+                              : `Scrap default · users stop at ${
                                   (() => {
                                     const ms = effectiveBettingCloseMs(game, now);
-                                    const win = nextDrawWindow(game.short_code, now);
-                                    return ms
-                                      ? new Date(ms).toLocaleString()
-                                      : win
-                                        ? win.drawLabel
-                                        : '—';
+                                    return ms ? new Date(ms).toLocaleString() : '—';
                                   })()
                                 }`}
                           </small>
