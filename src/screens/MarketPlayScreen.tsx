@@ -112,7 +112,8 @@ export function MarketPlayScreen({ gameId, onBack }: Props) {
   };
 
   const bettingOpen = game ? isMarketBettingOpen(game, now) : false;
-  const todayDigit = scrapedDigit(game?.last_scraped_result);
+  /** Only today's satta digit — not yesterday while market is still XX/open. */
+  const outDigit = scrapedDigit(game?.last_scraped_result);
 
   const totalAmount = useMemo(() => {
     const slipTotal = slip.reduce((s, i) => s + i.amount, 0);
@@ -338,9 +339,9 @@ export function MarketPlayScreen({ gameId, onBack }: Props) {
         </p>
       )}
 
-      {todayDigit && (
+      {outDigit && (
         <p className="mp-result-red market-last-result">
-          Result: <strong>{todayDigit}</strong>
+          Result: <strong>{outDigit}</strong>
         </p>
       )}
 

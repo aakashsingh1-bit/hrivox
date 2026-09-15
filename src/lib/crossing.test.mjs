@@ -68,6 +68,25 @@ if (formatMarketRange('DW') !== '(06:00 am - 05:00 am)') {
   failed++;
 }
 
+// 09:04 IST — Desawar result out (89) must be closed/red even though next window is open
+const istMorning = Date.UTC(2026, 8, 15, 3, 34, 0); // 2026-09-15 09:04 IST
+const dwClosedAfterResult = isMarketBettingOpen(
+  { short_code: 'DW', is_active: true, last_scraped_result: '89', result: '89' },
+  istMorning,
+);
+const fbOpenMorning = isMarketBettingOpen(
+  { short_code: 'FB', is_active: true, last_scraped_result: 'XX', result: '30' },
+  istMorning,
+);
+if (dwClosedAfterResult) {
+  console.error('FAIL Desawar must be closed when scrape digit 89');
+  failed++;
+}
+if (!fbOpenMorning) {
+  console.error('FAIL Faridabad should stay open at 09:04 with XX');
+  failed++;
+}
+
 if (failed) {
   console.error(`Failed ${failed}`);
   process.exit(1);

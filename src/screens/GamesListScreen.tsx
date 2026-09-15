@@ -60,6 +60,10 @@ export function GamesListScreen({ onOpenGame }: Props) {
     void loadGames();
     void requestMarketResults().then(() => void loadGames());
     const tick = window.setInterval(() => setNow(Date.now()), 1000);
+    // Keep scraping so XX → digit flips markets to red without waiting for draw due
+    const scrape = window.setInterval(() => {
+      void requestMarketResults().then(() => void loadGames());
+    }, 60000);
     const reload = window.setInterval(() => {
       void loadGames();
     }, 5000);
@@ -70,6 +74,7 @@ export function GamesListScreen({ onOpenGame }: Props) {
     });
     return () => {
       window.clearInterval(tick);
+      window.clearInterval(scrape);
       window.clearInterval(reload);
       window.removeEventListener('focus', onFocus);
     };

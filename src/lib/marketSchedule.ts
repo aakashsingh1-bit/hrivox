@@ -122,12 +122,14 @@ export type MarketOpenInput = {
 };
 
 /**
- * Open from official day-open → draw−30s (IST), matching satta-king clocks.
- * No artificial hourly window. Scrape XX/digits drive settlement + list digit;
- * after a result, the next window opens at the next day-open automatically.
+ * Green only when satta today is still XX/pending AND wall clock is inside
+ * [day-open, draw − 30s). Digit on the board (result out) → red/closed immediately.
  */
 export function isMarketBettingOpen(game: MarketOpenInput, now = Date.now()): boolean {
   if (!game.is_active) return false;
+
+  // Satta-king today column has a digit → that draw is over; stay closed until XX again.
+  if (!isScrapedPending(game.last_scraped_result)) return false;
 
   const win = nextDrawWindow(game.short_code, now);
   if (win) {
