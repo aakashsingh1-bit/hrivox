@@ -291,7 +291,7 @@ export function MarketPlayScreen({ gameId, onBack }: Props) {
                 Result <b>{outcome.digit}</b> · You won
               </p>
               <strong className="result-payout">+{outcome.payout} coins</strong>
-              <small>Stake {outcome.stake} · Payout 1 → 8</small>
+              <small>Stake {outcome.stake} · Payout 1 → 90</small>
             </>
           ) : (
             <>

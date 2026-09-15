@@ -136,7 +136,7 @@ export function AuthScreen() {
           </button>
         </form>
 
-        <p className="auth-note">Win payout: 1 coin → 8 coins · Hourly results</p>
+        <p className="auth-note">Markets 1 → 90 · Harf 1 → 8</p>
       </div>
     </div>
   );

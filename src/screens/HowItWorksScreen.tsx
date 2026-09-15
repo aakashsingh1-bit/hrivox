@@ -19,8 +19,8 @@ export function HowItWorksScreen({ onBack }: { onBack: () => void }) {
           <div>
             <strong>Play Game</strong>
             <p>
-              Pick a market, then Open Game / Jantari (Dhai Open + Harup Close) / Crossing (up to 8 digits). Tap
-              Continue. Max <b>Rs 200</b> per number in the final hour.
+              Pick a market, then Open Game / Jantari (Dhai Open + Harup Close) / Crossing (up to 8 digits). Min
+              bet <b>Rs 100</b>. Market payout <b>1 → 90</b>.
             </p>
           </div>
         </li>
@@ -28,7 +28,7 @@ export function HowItWorksScreen({ onBack }: { onBack: () => void }) {
           <span className="info-step-icon"><CircleDot size={18} /></span>
           <div>
             <strong>Play Harf</strong>
-            <p>Separate wheel game (0–9). Lowest total bet wins that round.</p>
+            <p>Separate wheel game (0–9). Lowest total bet wins. Payout <b>1 → 8</b>. Max Rs 200 in final hour.</p>
           </div>
         </li>
         <li>
@@ -57,8 +57,8 @@ export function HowItWorksScreen({ onBack }: { onBack: () => void }) {
           <div>
             <strong>Payout</strong>
             <p>
-              Winners get <b>8 coins for every 1 coin</b> staked. Invite & Earn: 100 coins when a referred user
-              deposits Rs 2,000+.
+              Markets: <b>90 coins for every 1 coin</b> staked. Play Harf: <b>8 for every 1</b>. Invite & Earn:
+              100 coins when a referred user deposits Rs 2,000+.
             </p>
           </div>
         </li>
@@ -66,7 +66,7 @@ export function HowItWorksScreen({ onBack }: { onBack: () => void }) {
 
       <div className="info-callout">
         <strong>Example</strong>
-        <p>You bet 10 coins on jodi 57. If result is 57, you receive 80 coins payout.</p>
+        <p>You bet 10 coins on jodi 57. If result is 57, you receive 900 coins payout (1 → 90).</p>
       </div>
     </div>
   );

@@ -73,7 +73,7 @@ export function AccountScreen({
         <strong>
           <Coins size={26} /> {profile?.coins ?? 0}
         </strong>
-        <small>Payout rule: 1 → 8 on win</small>
+        <small>Markets 1 → 90 · Harf 1 → 8</small>
       </div>
 
       <button type="button" className="add-money-btn" onClick={() => openAddMoneyWhatsApp()}>
