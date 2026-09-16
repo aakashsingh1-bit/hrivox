@@ -109,18 +109,44 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     phone: string,
     referralCode?: string,
   ) => {
-    const { error } = await supabase.auth.signUp({
-      email,
+    // Simple password signup — no OTP / magic link. With mailer_autoconfirm on,
+    // Auth returns a session immediately and does not send confirmation email.
+    const { data, error } = await supabase.auth.signUp({
+      email: email.trim().toLowerCase(),
       password,
       options: {
         data: {
-          display_name: displayName,
-          phone,
+          display_name: displayName.trim(),
+          phone: phone.trim(),
           referral_code: referralCode || '',
         },
+        emailRedirectTo: undefined,
       },
     });
-    if (error) return { error: error.message };
+    if (error) {
+      const msg = error.message || 'Signup failed';
+      if (/rate limit|over_email_send_rate_limit/i.test(msg)) {
+        return {
+          error:
+            'Too many signup emails were sent earlier. Email confirmation is now disabled — wait a minute and try again, or use Login if you already registered.',
+        };
+      }
+      return { error: msg };
+    }
+    // If project still requires confirm (no session), sign in right away after autoconfirm.
+    if (!data.session) {
+      const { error: signInErr } = await supabase.auth.signInWithPassword({
+        email: email.trim().toLowerCase(),
+        password,
+      });
+      if (signInErr) {
+        // Account may exist but unconfirmed — treat as created; user can login once confirmed.
+        if (/email not confirmed|confirm/i.test(signInErr.message)) {
+          return { error: null };
+        }
+        return { error: signInErr.message };
+      }
+    }
     return { error: null };
   };
 

@@ -30,11 +30,7 @@ export function AuthScreen() {
     if (mode === 'signup') {
       const { error } = await signUp(email, password, displayName, phone, referralCode.trim());
       if (error) setError(error);
-      else {
-        setError('Account created! Please login now.');
-        setMode('login');
-        setPassword('');
-      }
+      // On success, session is set by AuthProvider — app opens automatically.
     } else {
       const { error } = await signIn(email, password);
       if (error) setError(error);
