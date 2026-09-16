@@ -55,7 +55,7 @@ export function MoreScreen({
       title: 'Add money / Support',
       subtitle: 'WhatsApp support for coin top-up',
       Icon: MessageCircle,
-      action: () => openAddMoneyWhatsApp(),
+      action: () => void openAddMoneyWhatsApp(),
     },
     {
       title: 'Settings',

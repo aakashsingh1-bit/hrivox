@@ -160,7 +160,7 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: Tab) => void }) {
         )}
       </section>
 
-      <button type="button" className="ad-money" onClick={() => openAddMoneyWhatsApp()}>
+      <button type="button" className="ad-money" onClick={() => void openAddMoneyWhatsApp()}>
         👉 ऐड मनी करने यहाँ क्लिक करें
       </button>
 
@@ -207,7 +207,7 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: Tab) => void }) {
         >
           <RefreshCw size={16} /> Refresh
         </button>
-        <button type="button" className="whatsapp-button" onClick={() => openAddMoneyWhatsApp('Hello HRIVOX 900 support')}>
+        <button type="button" className="whatsapp-button" onClick={() => void openAddMoneyWhatsApp('Hello HRIVOX 900 support')}>
           <MessageCircle size={24} />
         </button>
       </div>

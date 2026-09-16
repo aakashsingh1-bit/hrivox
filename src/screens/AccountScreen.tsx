@@ -76,7 +76,7 @@ export function AccountScreen({
         <small>Markets 1 → 90 · Harf 1 → 8</small>
       </div>
 
-      <button type="button" className="add-money-btn" onClick={() => openAddMoneyWhatsApp()}>
+      <button type="button" className="add-money-btn" onClick={() => void openAddMoneyWhatsApp()}>
         <MessageCircle size={16} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 8 }} />
         ऐड मनी / Add Money
       </button>
