@@ -126,10 +126,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (error) {
       const msg = error.message || 'Signup failed';
       if (/rate limit|over_email_send_rate_limit/i.test(msg)) {
-        return {
-          error:
-            'Too many signup emails were sent earlier. Email confirmation is now disabled — wait a minute and try again, or use Login if you already registered.',
-        };
+        return { error: 'Please wait a minute and try signup again.' };
       }
       return { error: msg };
     }
