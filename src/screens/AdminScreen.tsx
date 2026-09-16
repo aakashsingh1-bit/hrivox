@@ -4,6 +4,8 @@ import {
   supabase,
   formatCountdown,
   isHarfGame,
+  getSupportWhatsApp,
+  clearSupportWhatsAppCache,
   type Game,
   type Profile,
   type Bet,
@@ -20,9 +22,10 @@ import {
   RefreshCw,
   ArrowLeft,
   LayoutDashboard,
+  Settings,
 } from 'lucide-react';
 
-type AdminSection = 'overview' | 'games' | 'users' | 'bets' | 'results';
+type AdminSection = 'overview' | 'games' | 'users' | 'bets' | 'results' | 'settings';
 type BetHistoryFilter = '24h' | '7d' | '30d' | 'all';
 
 const SECTIONS: { id: AdminSection; label: string }[] = [
@@ -31,6 +34,7 @@ const SECTIONS: { id: AdminSection; label: string }[] = [
   { id: 'users', label: 'Users' },
   { id: 'bets', label: 'Bets' },
   { id: 'results', label: 'Results' },
+  { id: 'settings', label: 'Settings' },
 ];
 
 function sortGames(list: Game[]) {
@@ -141,6 +145,9 @@ export function AdminScreen({ onBack }: { onBack?: () => void }) {
   const [userBets, setUserBets] = useState<Bet[]>([]);
   const [userBetFilter, setUserBetFilter] = useState<BetHistoryFilter>('24h');
   const [userBetsLoading, setUserBetsLoading] = useState(false);
+  const [supportWa, setSupportWa] = useState('');
+  const [supportWaEdit, setSupportWaEdit] = useState('');
+  const [supportSaving, setSupportSaving] = useState(false);
 
   const loadPendingForGame = async (gameId: string | null) => {
     if (!gameId) {
@@ -433,6 +440,33 @@ export function AdminScreen({ onBack }: { onBack?: () => void }) {
     setUserBetFilter('24h');
     void loadUserBets(userId, '24h');
   };
+
+  const loadSupportWhatsApp = async () => {
+    const n = await getSupportWhatsApp();
+    setSupportWa(n);
+    setSupportWaEdit(n);
+  };
+
+  const saveSupportWhatsApp = async () => {
+    setSupportSaving(true);
+    const { data, error } = await supabase.rpc('admin_set_support_whatsapp', {
+      p_number: supportWaEdit,
+    });
+    setSupportSaving(false);
+    if (error) {
+      notify(error.message || 'Failed to save WhatsApp number');
+      return;
+    }
+    clearSupportWhatsAppCache();
+    const saved = typeof data === 'string' ? data : supportWaEdit.replace(/\D/g, '');
+    setSupportWa(saved);
+    setSupportWaEdit(saved);
+    notify(`Support WhatsApp updated: +${saved}`);
+  };
+
+  useEffect(() => {
+    if (section === 'settings') void loadSupportWhatsApp();
+  }, [section]);
 
   const creditUser = async (userId: string) => {
     const amt = Number(creditAmt[userId] || 0);
@@ -970,6 +1004,40 @@ export function AdminScreen({ onBack }: { onBack?: () => void }) {
                 );
               })}
               {results.length === 0 && <p className="empty-state">No results yet.</p>}
+            </div>
+          </section>
+        )}
+
+        {section === 'settings' && (
+          <section className="admin-pane">
+            <h2 className="admin-pane-title">
+              <Settings size={16} /> App settings
+            </h2>
+            <div className="admin-payout-row" style={{ display: 'grid' }}>
+              <label>
+                Support WhatsApp (Add Money / chat)
+                <input
+                  className="result-input"
+                  value={supportWaEdit}
+                  onChange={(e) =>
+                    setSupportWaEdit(e.target.value.replace(/[^0-9+]/g, '').slice(0, 16))
+                  }
+                  placeholder="919XXXXXXXXX"
+                  inputMode="tel"
+                />
+              </label>
+              <button
+                type="button"
+                className="publish-button"
+                disabled={supportSaving}
+                onClick={() => void saveSupportWhatsApp()}
+              >
+                {supportSaving ? 'Saving…' : 'Save number'}
+              </button>
+              <small className="admin-close-hint">
+                Digits with country code (no spaces). Current live: +{supportWa || '…'}. Used for Add Money,
+                Home WhatsApp button, and player Settings chat.
+              </small>
             </div>
           </section>
         )}

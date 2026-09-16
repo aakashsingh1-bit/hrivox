@@ -29,16 +29,13 @@ export function InviteScreen({ onBack }: { onBack: () => void }) {
     window.setTimeout(() => setToast(''), 2200);
   };
 
-  const link =
-    typeof window !== 'undefined'
-      ? `${window.location.origin}${window.location.pathname}?ref=${encodeURIComponent(code || '')}`
-      : '';
+  const shareText = `Join HRIVOX 900!\nUse my invite code: ${code}\nSign up in the app and enter this code. When you deposit Rs 2,000+, I earn rewards. Play now!`;
 
   const copy = async () => {
     playTap();
     try {
-      await navigator.clipboard.writeText(link || code);
-      notify('Copied');
+      await navigator.clipboard.writeText(code);
+      notify('Code copied');
     } catch {
       notify(code);
     }
@@ -46,15 +43,19 @@ export function InviteScreen({ onBack }: { onBack: () => void }) {
 
   const share = async () => {
     playTap();
-    const text = `Join HRIVOX 900 with my code ${code}. Get started and play! ${link}`;
     if (navigator.share) {
       try {
-        await navigator.share({ title: 'HRIVOX 900', text, url: link });
+        await navigator.share({ title: 'HRIVOX 900 Invite', text: shareText });
       } catch {
         /* cancelled */
       }
     } else {
-      await copy();
+      try {
+        await navigator.clipboard.writeText(shareText);
+        notify('Invite message copied');
+      } catch {
+        notify(code);
+      }
     }
   };
 
@@ -74,13 +75,13 @@ export function InviteScreen({ onBack }: { onBack: () => void }) {
         <Gift size={28} />
         <strong>Earn 100 coins</strong>
         <p>
-          When a new user signs up with your code and deposits <b>Rs 2,000+</b>, you receive{' '}
-          <b>100 coins</b> once per referral. Duplicate or fake accounts may be excluded.
+          Share your code with friends. When a new user signs up with your code and deposits{' '}
+          <b>Rs 2,000+</b>, you receive <b>100 coins</b> once per referral.
         </p>
         <div className="invite-code">{code || '…'}</div>
         <div className="invite-actions">
           <button type="button" onClick={copy}>
-            <Copy size={16} /> Copy link
+            <Copy size={16} /> Copy code
           </button>
           <button type="button" className="primary" onClick={share}>
             <Share2 size={16} /> Share

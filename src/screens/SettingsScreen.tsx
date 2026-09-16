@@ -2,17 +2,22 @@ import { useEffect, useState } from 'react';
 import { ArrowLeft, Volume2, VolumeX, MessageCircle, ShieldCheck, LogOut } from 'lucide-react';
 import { isMuted, setMuted } from '@/lib/prefs';
 import { playTap, unlockAudio } from '@/lib/sounds';
-import { openAddMoneyWhatsApp, SUPPORT_WHATSAPP } from '@/lib/supabase';
+import { openAddMoneyWhatsApp, getSupportWhatsApp } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth';
 
 export function SettingsScreen({ onBack }: { onBack: () => void }) {
   const { profile, signOut } = useAuth();
   const [muted, setMutedState] = useState(isMuted());
+  const [wa, setWa] = useState('');
 
   useEffect(() => {
     const onMute = (e: Event) => setMutedState(Boolean((e as CustomEvent).detail));
     window.addEventListener('hrivox-mute', onMute);
     return () => window.removeEventListener('hrivox-mute', onMute);
+  }, []);
+
+  useEffect(() => {
+    void getSupportWhatsApp().then(setWa);
   }, []);
 
   const toggleMute = () => {
@@ -49,9 +54,13 @@ export function SettingsScreen({ onBack }: { onBack: () => void }) {
       <div className="settings-card">
         <div>
           <strong>Support WhatsApp</strong>
-          <small>+{SUPPORT_WHATSAPP}</small>
+          <small>{wa ? `+${wa}` : '…'}</small>
         </div>
-        <button type="button" className="settings-action" onClick={() => openAddMoneyWhatsApp()}>
+        <button
+          type="button"
+          className="settings-action"
+          onClick={() => void openAddMoneyWhatsApp()}
+        >
           <MessageCircle size={16} /> Chat
         </button>
       </div>

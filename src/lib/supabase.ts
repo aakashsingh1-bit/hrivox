@@ -5,8 +5,51 @@ const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
 
 export const supabase = createClient(supabaseUrl || 'https://placeholder.supabase.co', supabaseAnonKey || 'placeholder');
 
-/** WhatsApp support number (digits only, with country code). Update for client. */
-export const SUPPORT_WHATSAPP = '919999999999';
+/** Fallback if DB setting not loaded yet. */
+export const SUPPORT_WHATSAPP_DEFAULT = '919999999999';
+
+/** @deprecated Prefer getSupportWhatsApp() — kept for quick display fallback. */
+export let SUPPORT_WHATSAPP = SUPPORT_WHATSAPP_DEFAULT;
+
+let supportCache: string | null = null;
+let supportFetch: Promise<string> | null = null;
+
+/** Digits-only WhatsApp number with country code (from Admin Settings). */
+export async function getSupportWhatsApp(): Promise<string> {
+  if (supportCache) return supportCache;
+  if (!supportFetch) {
+    supportFetch = (async () => {
+      try {
+        const { data, error } = await supabase.rpc('get_support_whatsapp');
+        if (!error && typeof data === 'string' && data.trim()) {
+          supportCache = data.replace(/\D/g, '');
+          SUPPORT_WHATSAPP = supportCache;
+          return supportCache;
+        }
+        const { data: row } = await supabase
+          .from('app_settings')
+          .select('value')
+          .eq('key', 'support_whatsapp')
+          .maybeSingle();
+        if (row?.value) {
+          supportCache = String(row.value).replace(/\D/g, '');
+          SUPPORT_WHATSAPP = supportCache;
+          return supportCache;
+        }
+      } catch {
+        /* ignore */
+      }
+      return SUPPORT_WHATSAPP_DEFAULT;
+    })().finally(() => {
+      supportFetch = null;
+    });
+  }
+  return supportFetch;
+}
+
+export function clearSupportWhatsAppCache() {
+  supportCache = null;
+}
 
 /** Standalone Play Harf game short_code (separate from market games). */
 export const HARF_SHORT_CODE = 'HF';
@@ -73,7 +116,9 @@ export function formatCountdown(ms: number): string {
   return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
 }
 
-export function openAddMoneyWhatsApp(message?: string) {
+export async function openAddMoneyWhatsApp(message?: string) {
+  const num = await getSupportWhatsApp();
   const text = encodeURIComponent(message || 'Hello HRIVOX 900, I want to add coins to my account.');
-  window.open(`https://wa.me/${SUPPORT_WHATSAPP}?text=${text}`, '_blank');
+  const url = `https://wa.me/${num}?text=${text}`;
+  window.open(url, '_blank');
 }
