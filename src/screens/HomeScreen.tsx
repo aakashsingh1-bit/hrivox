@@ -3,6 +3,7 @@ import { useAuth } from '@/lib/auth';
 import {
   supabase,
   openAddMoneyWhatsApp,
+  openWithdrawWhatsApp,
   formatCountdown,
   isHarfGame,
   type Game,
@@ -162,6 +163,9 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: Tab) => void }) {
 
       <button type="button" className="ad-money" onClick={() => void openAddMoneyWhatsApp()}>
         👉 ऐड मनी करने यहाँ क्लिक करें
+      </button>
+      <button type="button" className="ad-money withdraw-home" onClick={() => void openWithdrawWhatsApp()}>
+        👉 विदड्रॉ मनी करने यहाँ क्लिक करें
       </button>
 
       <section className="games-section">

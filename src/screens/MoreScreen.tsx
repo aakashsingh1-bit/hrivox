@@ -1,5 +1,5 @@
 import { useAuth } from '@/lib/auth';
-import { openAddMoneyWhatsApp } from '@/lib/supabase';
+import { openAddMoneyWhatsApp, openWithdrawWhatsApp } from '@/lib/supabase';
 import { playTap } from '@/lib/sounds';
 import {
   ChevronRight,
@@ -10,6 +10,7 @@ import {
   ListOrdered,
   LogOut,
   MessageCircle,
+  Banknote,
   Settings,
   ShieldCheck,
 } from 'lucide-react';
@@ -56,6 +57,12 @@ export function MoreScreen({
       subtitle: 'WhatsApp support for coin top-up',
       Icon: MessageCircle,
       action: () => void openAddMoneyWhatsApp(),
+    },
+    {
+      title: 'Withdraw money',
+      subtitle: 'WhatsApp support for withdrawal',
+      Icon: Banknote,
+      action: () => void openWithdrawWhatsApp(),
     },
     {
       title: 'Settings',

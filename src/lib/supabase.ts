@@ -122,3 +122,9 @@ export async function openAddMoneyWhatsApp(message?: string) {
   const url = `https://wa.me/${num}?text=${text}`;
   window.open(url, '_blank');
 }
+
+export async function openWithdrawWhatsApp() {
+  return openAddMoneyWhatsApp(
+    'Hello HRIVOX 900, I want to withdraw money from my account.',
+  );
+}

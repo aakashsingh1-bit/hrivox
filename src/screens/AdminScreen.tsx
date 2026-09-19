@@ -1036,7 +1036,7 @@ export function AdminScreen({ onBack }: { onBack?: () => void }) {
               </button>
               <small className="admin-close-hint">
                 Digits with country code (no spaces). Current live: +{supportWa || '…'}. Used for Add Money,
-                Home WhatsApp button, and player Settings chat.
+                Withdraw, Home WhatsApp button, and player Settings chat.
               </small>
             </div>
           </section>

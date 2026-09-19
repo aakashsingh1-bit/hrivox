@@ -1,7 +1,7 @@
 import { useAuth } from '@/lib/auth';
-import { supabase, openAddMoneyWhatsApp, type Bet, type Game } from '@/lib/supabase';
+import { supabase, openAddMoneyWhatsApp, openWithdrawWhatsApp, type Bet, type Game } from '@/lib/supabase';
 import { kindLabel } from '@/lib/results';
-import { ChevronRight, Coins, ListOrdered, CircleHelp, Settings, MessageCircle, LogOut } from 'lucide-react';
+import { ChevronRight, Coins, ListOrdered, CircleHelp, Settings, MessageCircle, LogOut, Banknote } from 'lucide-react';
 import type { Tab } from '@/components/AppShell';
 import { playTap } from '@/lib/sounds';
 import { useEffect, useState } from 'react';
@@ -79,6 +79,11 @@ export function AccountScreen({
       <button type="button" className="add-money-btn" onClick={() => void openAddMoneyWhatsApp()}>
         <MessageCircle size={16} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 8 }} />
         ऐड मनी / Add Money
+      </button>
+
+      <button type="button" className="withdraw-money-btn" onClick={() => void openWithdrawWhatsApp()}>
+        <Banknote size={16} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 8 }} />
+        विदड्रॉ / Withdraw Money
       </button>
 
       <button type="button" className="logout-button" style={{ marginTop: 12 }} onClick={async () => signOut()}>

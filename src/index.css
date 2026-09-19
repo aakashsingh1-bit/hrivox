@@ -190,6 +190,7 @@ button:focus-visible, input:focus-visible { outline: 3px solid rgba(39, 154, 224
   color: #e03333; font-size: 15px; font-weight: 700; text-align: center; text-decoration: underline;
 }
 .ad-money:hover { opacity: .85; }
+.ad-money.withdraw-home { color: #1a8f5c; margin-top: -8px; margin-bottom: 4px; }
 
 .games-section { padding: 4px 0 6px; }
 .section-top { display: flex; justify-content: space-between; align-items: end; gap: 10px; }
@@ -554,8 +555,12 @@ button:focus-visible, input:focus-visible { outline: 3px solid rgba(39, 154, 224
 .balance-card strong svg { color: #ffe04e; fill: #f8ba24; }
 
 .add-money-btn {
-  width: 100%; margin-bottom: 14px; padding: 13px; border: 0; border-radius: 12px;
+  width: 100%; margin-bottom: 10px; padding: 13px; border: 0; border-radius: 12px;
   color: #fff; background: #e8444f; font-weight: 700; font-size: 14px;
+}
+.withdraw-money-btn {
+  width: 100%; margin-bottom: 14px; padding: 13px; border: 0; border-radius: 12px;
+  color: #fff; background: #1a8f5c; font-weight: 700; font-size: 14px;
 }
 
 .account-list { display: grid; gap: 8px; }
