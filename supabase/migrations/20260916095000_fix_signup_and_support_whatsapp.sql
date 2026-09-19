@@ -17,7 +17,7 @@ BEGIN
   v_code := upper(substr(replace(NEW.id::text, '-', ''), 1, 8));
 
   INSERT INTO public.profiles (id, display_name, phone, coins, is_admin, referral_code)
-  VALUES (NEW.id, v_name, v_phone, 1000, false, v_code)
+  VALUES (NEW.id, v_name, v_phone, 0, false, v_code)
   ON CONFLICT (id) DO UPDATE
     SET
       display_name = COALESCE(NULLIF(trim(profiles.display_name), ''), EXCLUDED.display_name),
@@ -29,7 +29,7 @@ EXCEPTION
   WHEN unique_violation THEN
     -- referral_code collision — retry without unique code, then ensure later
     INSERT INTO public.profiles (id, display_name, phone, coins, is_admin)
-    VALUES (NEW.id, v_name, v_phone, 1000, false)
+    VALUES (NEW.id, v_name, v_phone, 0, false)
     ON CONFLICT (id) DO NOTHING;
     RETURN NEW;
   WHEN OTHERS THEN

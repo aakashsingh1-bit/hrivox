@@ -54,7 +54,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         id: uid,
         display_name: meta.display_name || 'Player',
         phone: meta.phone || '',
-        coins: 1000,
+        coins: 0,
         is_admin: false,
         referral_code: uid.replace(/-/g, '').slice(0, 8).toUpperCase(),
       })
