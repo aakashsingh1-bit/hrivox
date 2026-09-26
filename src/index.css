@@ -902,6 +902,13 @@ button:focus-visible, input:focus-visible { outline: 3px solid rgba(39, 154, 224
   border: 1px solid #d7e2ec;
   border-radius: 8px;
 }
+.admin-limits-row {
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+}
+.admin-limits-row .publish-button {
+  align-self: end;
+  min-height: 40px;
+}
 .admin-payout-row label {
   display: flex;
   flex-direction: column;

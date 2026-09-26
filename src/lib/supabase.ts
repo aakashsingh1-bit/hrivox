@@ -79,6 +79,10 @@ export type Game = {
   last_scraped_at?: string | null;
   /** Win payout: stake × this (Harf default 8, markets default 90). */
   payout_multiplier?: number | null;
+  /** Min stake for open/jodi/Harf (admin-configurable). */
+  min_bet?: number | null;
+  /** Min stake per Crossing / Jodi Cut combo (markets). */
+  min_bet_crossing?: number | null;
   /** Admin override: last time users can bet. Null = scrap/schedule default. */
   betting_closes_at?: string | null;
   created_at: string;

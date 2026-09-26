@@ -6,10 +6,11 @@ import { supabase, type Bet, type Game } from '@/lib/supabase';
 import { playBetOk, playLose, playTap, playWin } from '@/lib/sounds';
 import {
   assertMarketMinBet,
-  CROSSING_MIN_BET,
   expandCrossing,
+  gameCrossingMinBet,
+  gameMinBet,
+  gamePayoutMult,
   JANTARI_DIGITS,
-  MARKET_MIN_BET,
   sanitizeCrossingDigits,
 } from '@/lib/crossing';
 import { isMarketBettingOpen, scrapedDigit } from '@/lib/marketSchedule';
@@ -138,8 +139,9 @@ export function MarketPlayScreen({ gameId, onBack }: Props) {
       notify('Enter number 0–99');
       return;
     }
-    if (!a || a < MARKET_MIN_BET) {
-      notify(`Minimum bet Rs ${MARKET_MIN_BET}`);
+    const minOpen = gameMinBet(game);
+    if (!a || a < minOpen) {
+      notify(`Minimum bet Rs ${minOpen}`);
       return;
     }
     setSlip((cur) => [
@@ -162,8 +164,9 @@ export function MarketPlayScreen({ gameId, onBack }: Props) {
       notify('Enter 2–8 unique digits (no digit repeats)');
       return;
     }
-    if (!amt || amt < CROSSING_MIN_BET) {
-      notify(`Minimum bet Rs ${CROSSING_MIN_BET}`);
+    const minCross = gameCrossingMinBet(game);
+    if (!amt || amt < minCross) {
+      notify(`Minimum bet Rs ${minCross}`);
       return;
     }
     const { rows } = expandCrossing(base, amt, jodiCut);
@@ -179,9 +182,10 @@ export function MarketPlayScreen({ gameId, onBack }: Props) {
   const crossPreview = useMemo(() => {
     const base = sanitizeCrossingDigits(crossBase);
     const amt = Number(crossAmt) || 0;
-    if (base.length < 2 || amt < CROSSING_MIN_BET) return null;
+    const minCross = gameCrossingMinBet(game);
+    if (base.length < 2 || amt < minCross) return null;
     return expandCrossing(base, amt, jodiCut);
-  }, [crossBase, crossAmt, jodiCut]);
+  }, [crossBase, crossAmt, jodiCut, game]);
 
   const buildBets = (): BetPayload[] => {
     if (tab === 'open') {
@@ -211,7 +215,7 @@ export function MarketPlayScreen({ gameId, onBack }: Props) {
       notify('Add at least one entry');
       return;
     }
-    const minBet = tab === 'crossing' ? CROSSING_MIN_BET : MARKET_MIN_BET;
+    const minBet = tab === 'crossing' ? gameCrossingMinBet(game) : gameMinBet(game);
     const minErr = assertMarketMinBet(bets.map((b) => b.amount), minBet);
     if (minErr) {
       notify(minErr);
@@ -285,7 +289,7 @@ export function MarketPlayScreen({ gameId, onBack }: Props) {
                 Result <b>{outcome.digit}</b> · You won
               </p>
               <strong className="result-payout">+{outcome.payout} coins</strong>
-              <small>Stake {outcome.stake} · Payout 1 → 90</small>
+              <small>Stake {outcome.stake} · Payout 1 → {gamePayoutMult(game)}</small>
             </>
           ) : (
             <>
@@ -343,6 +347,9 @@ export function MarketPlayScreen({ gameId, onBack }: Props) {
         {tab === 'open' && (
           <>
             <div className="mp-form-panel">
+              <p className="mp-min-hint" style={{ gridColumn: '1 / -1', margin: '0 0 4px' }}>
+                Min Rs {gameMinBet(game)} · Payout 1 → {gamePayoutMult(game)}
+              </p>
               <input
                 className="mp-plain-input"
                 value={openNum}
@@ -378,7 +385,10 @@ export function MarketPlayScreen({ gameId, onBack }: Props) {
 
         {tab === 'jantari' && (
           <div className="jantari-v2">
-            <p className="mp-min-hint">Minimum bet Rs {MARKET_MIN_BET} per number · no final-hour cap</p>
+            <p className="mp-min-hint">
+              Minimum bet Rs {gameMinBet(game)} per number · Crossing min Rs {gameCrossingMinBet(game)} ·
+              Payout 1 → {gamePayoutMult(game)}
+            </p>
             {digitRow('Dhai / Open / अंदर', openDigits, setOpenDigits)}
             {digitRow('Harup / Close / बाहर', closeDigits, setCloseDigits)}
           </div>
@@ -387,6 +397,9 @@ export function MarketPlayScreen({ gameId, onBack }: Props) {
         {tab === 'crossing' && (
           <>
             <div className="mp-form-panel crossing-panel">
+              <p className="mp-min-hint" style={{ margin: '0 0 6px' }}>
+                Min Rs {gameCrossingMinBet(game)} per combo · Payout 1 → {gamePayoutMult(game)}
+              </p>
               <label className="jodi-cut">
                 <input type="checkbox" checked={jodiCut} onChange={(e) => setJodiCut(e.target.checked)} />
                 Jodi Cut

@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { useAuth } from '@/lib/auth';
 import { supabase, formatCountdown, type Bet, type Game, type ResultHistory } from '@/lib/supabase';
 import { ArrowLeft, Volume2, VolumeX, Coins, PartyPopper, Frown } from 'lucide-react';
-import { assertBetAmountsAllowed, isFinalHour } from '@/lib/crossing';
+import { assertBetAmountsAllowed, gameMinBet, gamePayoutMult, isFinalHour } from '@/lib/crossing';
 import { playBetOk, playLose, playSpinStart, playTick, playWin, unlockAudio } from '@/lib/sounds';
 import { isMuted, setMuted as persistMuted } from '@/lib/prefs';
 
@@ -193,7 +193,7 @@ export function PlayScreen({ gameId, mode, onBack }: Props) {
     if (wonOnly.length) {
       const stake = wonOnly.reduce((s, b) => s + b.amount, 0);
       const payout = wonOnly.reduce(
-        (s, b) => s + (b.payout || b.amount * (game?.payout_multiplier || 8)),
+        (s, b) => s + (b.payout || b.amount * gamePayoutMult(game)),
         0,
       );
       setOutcome({ type: 'won', digit: winningDigit, stake, payout });
@@ -278,6 +278,14 @@ export function PlayScreen({ gameId, mode, onBack }: Props) {
       notify('Insufficient coins');
       return;
     }
+    const minHarf = gameMinBet(game);
+    const underMin = Object.entries(amounts)
+      .filter(([, v]) => Number(v) > 0)
+      .some(([, v]) => Number(v) < minHarf);
+    if (underMin) {
+      notify(`Minimum bet Rs ${minHarf}`);
+      return;
+    }
     const capErr = assertBetAmountsAllowed(
       Object.entries(amounts)
         .filter(([, v]) => Number(v) > 0)
@@ -330,7 +338,7 @@ export function PlayScreen({ gameId, mode, onBack }: Props) {
               </p>
               <strong className="result-payout">+{outcome.payout} coins</strong>
               <small>
-                Stake {outcome.stake} · Payout 1 → {game?.payout_multiplier ?? 8}
+                Stake {outcome.stake} · Payout 1 → {gamePayoutMult(game)}
               </small>
             </>
           ) : (

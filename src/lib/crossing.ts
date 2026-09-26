@@ -3,6 +3,30 @@
 export const MARKET_MIN_BET = 100;
 export const CROSSING_MIN_BET = 10;
 
+/** Resolve min stake from game row (falls back to product defaults). */
+export function gameMinBet(game: { short_code?: string; min_bet?: number | null } | null | undefined) {
+  const n = Number(game?.min_bet);
+  if (Number.isFinite(n) && n >= 1) return Math.floor(n);
+  return game?.short_code === 'HF' ? 1 : MARKET_MIN_BET;
+}
+
+export function gameCrossingMinBet(
+  game: { short_code?: string; min_bet_crossing?: number | null; min_bet?: number | null } | null | undefined,
+) {
+  const n = Number(game?.min_bet_crossing);
+  if (Number.isFinite(n) && n >= 1) return Math.floor(n);
+  if (game?.short_code === 'HF') return gameMinBet(game);
+  return CROSSING_MIN_BET;
+}
+
+export function gamePayoutMult(
+  game: { short_code?: string; payout_multiplier?: number | null } | null | undefined,
+) {
+  const n = Number(game?.payout_multiplier);
+  if (Number.isFinite(n) && n >= 1) return Math.floor(n);
+  return game?.short_code === 'HF' ? 8 : 90;
+}
+
 /** Digits only; each digit at most once (no repeats). Max 8 digits. */
 export function sanitizeCrossingDigits(raw: string, maxLen = 8): string {
   let out = '';

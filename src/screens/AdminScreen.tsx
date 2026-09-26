@@ -25,12 +25,13 @@ import {
   Settings,
 } from 'lucide-react';
 
-type AdminSection = 'overview' | 'games' | 'users' | 'bets' | 'results' | 'settings';
+type AdminSection = 'overview' | 'games' | 'users' | 'bets' | 'results' | 'limits' | 'settings';
 type BetHistoryFilter = '24h' | '7d' | '30d' | 'all';
 
 const SECTIONS: { id: AdminSection; label: string }[] = [
   { id: 'overview', label: 'Overview' },
   { id: 'games', label: 'Games' },
+  { id: 'limits', label: 'Min & payout' },
   { id: 'users', label: 'Users' },
   { id: 'bets', label: 'Bets' },
   { id: 'results', label: 'Results' },
@@ -148,6 +149,10 @@ export function AdminScreen({ onBack }: { onBack?: () => void }) {
   const [supportWa, setSupportWa] = useState('');
   const [supportWaEdit, setSupportWaEdit] = useState('');
   const [supportSaving, setSupportSaving] = useState(false);
+  const [limitEdit, setLimitEdit] = useState<
+    Record<string, { minBet: string; minCross: string; payout: string }>
+  >({});
+  const [limitSaving, setLimitSaving] = useState<string | null>(null);
 
   const loadPendingForGame = async (gameId: string | null) => {
     if (!gameId) {
@@ -351,6 +356,75 @@ export function AdminScreen({ onBack }: { onBack?: () => void }) {
     }
     await loadAll();
     notify(`${game.name} payout set to 1 → ${mult}`);
+  };
+
+  const draftLimits = (game: Game) => {
+    const cur = limitEdit[game.id];
+    if (cur) return cur;
+    return {
+      minBet: String(game.min_bet ?? (isHarfGame(game) ? 1 : 100)),
+      minCross: String(game.min_bet_crossing ?? (isHarfGame(game) ? 1 : 10)),
+      payout: String(game.payout_multiplier ?? (isHarfGame(game) ? 8 : 90)),
+    };
+  };
+
+  const setDraftField = (gameId: string, field: 'minBet' | 'minCross' | 'payout', value: string) => {
+    setLimitEdit((prev) => {
+      const game = games.find((g) => g.id === gameId);
+      const harf = game ? isHarfGame(game) : false;
+      const existing = prev[gameId] ?? {
+        minBet: String(game?.min_bet ?? (harf ? 1 : 100)),
+        minCross: String(game?.min_bet_crossing ?? (harf ? 1 : 10)),
+        payout: String(game?.payout_multiplier ?? (harf ? 8 : 90)),
+      };
+      return {
+        ...prev,
+        [gameId]: {
+          ...existing,
+          [field]: value.replace(/[^0-9]/g, '').slice(0, 6),
+        },
+      };
+    });
+  };
+
+  const saveGameLimits = async (game: Game) => {
+    const d = draftLimits(game);
+    const minBet = Number(d.minBet);
+    const minCross = Number(d.minCross);
+    const payout = Number(d.payout);
+    if (!Number.isInteger(minBet) || minBet < 1 || minBet > 100000) {
+      notify('Min bet must be whole number 1–100000');
+      return;
+    }
+    if (!Number.isInteger(minCross) || minCross < 1 || minCross > 100000) {
+      notify('Crossing min must be whole number 1–100000');
+      return;
+    }
+    if (!Number.isInteger(payout) || payout < 1 || payout > 1000) {
+      notify('Payout must be whole number 1–1000 (earn = stake × N)');
+      return;
+    }
+    setLimitSaving(game.id);
+    const { error } = await supabase.rpc('admin_set_game_limits', {
+      p_game_id: game.id,
+      p_min_bet: minBet,
+      p_min_bet_crossing: isHarfGame(game) ? minBet : minCross,
+      p_payout_multiplier: payout,
+    });
+    setLimitSaving(null);
+    if (error) {
+      notify(error.message || 'Failed to save limits');
+      return;
+    }
+    setLimitEdit((prev) => {
+      const next = { ...prev };
+      delete next[game.id];
+      return next;
+    });
+    await loadAll();
+    notify(
+      `${game.name}: min ${minBet}${isHarfGame(game) ? '' : ` / crossing ${minCross}`} · payout 1 → ${payout}`,
+    );
   };
 
   const saveBettingClose = async (game: Game) => {
@@ -1004,6 +1078,85 @@ export function AdminScreen({ onBack }: { onBack?: () => void }) {
                 );
               })}
               {results.length === 0 && <p className="empty-state">No results yet.</p>}
+            </div>
+          </section>
+        )}
+
+        {section === 'limits' && (
+          <section className="admin-pane">
+            <h2 className="admin-pane-title">Min bet & payout (per game)</h2>
+            <p className="admin-close-hint" style={{ marginBottom: 12 }}>
+              Win amount = stake × payout. Example: bet 10 with payout 90 → earn 900 coins.
+            </p>
+            <div className="admin-limits-list">
+              {sortGames(games).map((game) => {
+                const harf = isHarfGame(game);
+                const d = draftLimits(game);
+                return (
+                  <div key={game.id} className="admin-game-card">
+                    <div className="admin-game-info">
+                      <strong>
+                        {game.name} ({game.short_code})
+                        {harf ? (
+                          <span className="harf-badge"> PLAY HARF</span>
+                        ) : (
+                          <span className="market-badge"> MARKET</span>
+                        )}
+                      </strong>
+                      <small>
+                        Live: min {game.min_bet ?? (harf ? 1 : 100)}
+                        {!harf ? ` · crossing ${game.min_bet_crossing ?? 10}` : ''}
+                        {' · '}payout 1 → {game.payout_multiplier ?? (harf ? 8 : 90)}
+                      </small>
+                    </div>
+                    <div className="admin-game-actions stacked">
+                      <div className="admin-payout-row admin-limits-row">
+                        <label>
+                          Min bet (Open / Jodi / Harf)
+                          <input
+                            className="result-input"
+                            value={d.minBet}
+                            onChange={(e) => setDraftField(game.id, 'minBet', e.target.value)}
+                            inputMode="numeric"
+                            placeholder={harf ? '1' : '100'}
+                          />
+                        </label>
+                        {!harf && (
+                          <label>
+                            Min Crossing / Jodi Cut
+                            <input
+                              className="result-input"
+                              value={d.minCross}
+                              onChange={(e) => setDraftField(game.id, 'minCross', e.target.value)}
+                              inputMode="numeric"
+                              placeholder="10"
+                            />
+                          </label>
+                        )}
+                        <label>
+                          Payout (1 → N)
+                          <input
+                            className="result-input"
+                            value={d.payout}
+                            onChange={(e) => setDraftField(game.id, 'payout', e.target.value)}
+                            inputMode="numeric"
+                            placeholder={harf ? '8' : '90'}
+                          />
+                        </label>
+                        <button
+                          type="button"
+                          className="publish-button"
+                          disabled={limitSaving === game.id}
+                          onClick={() => void saveGameLimits(game)}
+                        >
+                          {limitSaving === game.id ? 'Saving…' : 'Save'}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+              {games.length === 0 && <p className="empty-state">No games.</p>}
             </div>
           </section>
         )}
