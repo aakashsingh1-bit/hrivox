@@ -71,7 +71,7 @@ export function TimingsScreen({ onBack }: { onBack: () => void }) {
       <div className="info-callout">
         <strong>Close window</strong>
         <p>
-          Bets are blocked in the final 30 seconds before each draw. Jodi / Jantari / Crossing: min ₹100, no
+          Entries close in the final 30 seconds before each draw. Jodi / Jantari / Crossing: min ₹100, no
           final-hour cap.
         </p>
       </div>

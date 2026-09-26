@@ -59,7 +59,7 @@ export function kindLabel(kind: string | null | undefined) {
   if (kind === 'close') return 'Close';
   if (kind === 'jodi') return 'Jodi';
   if (kind === 'crossing') return 'Crossing';
-  return 'Bet';
+  return 'Play';
 }
 
 export function summarizeRoundOutcome(bets: Bet[], resultDigit: number) {

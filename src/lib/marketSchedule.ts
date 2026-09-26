@@ -64,7 +64,7 @@ function fmtIst12(h: number, mi: number) {
   return `${String(hr).padStart(2, '0')}:${String(mi).padStart(2, '0')} ${suffix}`;
 }
 
-/** Next betting window for a market (open → draw). */
+/** Next play window for a market (open → draw). */
 export function nextDrawWindow(shortCode: string, now = Date.now()): DrawWindow | null {
   const sch = MARKET_SCHEDULE[shortCode as MarketCode];
   if (!sch) return null;
@@ -128,7 +128,7 @@ export type MarketOpenInput = {
   betting_closes_at?: string | null;
 };
 
-/** Effective last-bet cutoff (ms). Admin override wins until that round ends; else draw − 30s. */
+/** Effective last-entry cutoff (ms). Admin override wins until that round ends; else draw − 30s. */
 export function effectiveBettingCloseMs(game: MarketOpenInput, now = Date.now()): number | null {
   const win = nextDrawWindow(game.short_code, now);
 
@@ -160,7 +160,7 @@ export function hasActiveBettingCloseOverride(game: MarketOpenInput, now = Date.
 }
 
 /**
- * List label: day-open → effective last-bet (admin override if set, else scrap draw).
+ * List label: day-open → effective last-entry (admin override if set, else scrap draw).
  */
 export function formatMarketListRange(game: MarketOpenInput, now = Date.now()): string {
   const sch = MARKET_SCHEDULE[game.short_code as MarketCode];
@@ -182,7 +182,7 @@ export function formatMarketListRange(game: MarketOpenInput, now = Date.now()): 
 }
 
 /**
- * Green only when satta today is still XX/pending AND before last-bet time
+ * Green only when satta today is still XX/pending AND before last-entry time
  * (admin override or scrap draw − 30s). Digit out → red/closed.
  */
 export function isMarketBettingOpen(game: MarketOpenInput, now = Date.now()): boolean {

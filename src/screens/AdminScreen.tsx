@@ -33,7 +33,7 @@ const SECTIONS: { id: AdminSection; label: string }[] = [
   { id: 'games', label: 'Games' },
   { id: 'limits', label: 'Min & payout' },
   { id: 'users', label: 'Users' },
-  { id: 'bets', label: 'Bets' },
+  { id: 'bets', label: 'Entries' },
   { id: 'results', label: 'Results' },
   { id: 'settings', label: 'Settings' },
 ];
@@ -194,7 +194,7 @@ export function AdminScreen({ onBack }: { onBack?: () => void }) {
     return () => window.clearInterval(t);
   }, []);
 
-  // Auto-refresh digit totals while watching Games / Bets / Overview
+  // Auto-refresh digit totals while watching Games / Entries / Overview
   useEffect(() => {
     if (section !== 'games' && section !== 'bets' && section !== 'overview') return;
     void refreshLive();
@@ -204,7 +204,7 @@ export function AdminScreen({ onBack }: { onBack?: () => void }) {
     return () => window.clearInterval(poll);
   }, [section, selectedGameId]);
 
-  // Instant updates when any bet is inserted/updated
+  // Instant updates when any entry is inserted/updated
   useEffect(() => {
     const channel = supabase
       .channel(`admin-live-bets-${selectedGameId || 'all'}`)
@@ -393,7 +393,7 @@ export function AdminScreen({ onBack }: { onBack?: () => void }) {
     const minCross = Number(d.minCross);
     const payout = Number(d.payout);
     if (!Number.isInteger(minBet) || minBet < 1 || minBet > 100000) {
-      notify('Min bet must be whole number 1–100000');
+      notify('Min amount must be whole number 1–100000');
       return;
     }
     if (!Number.isInteger(minCross) || minCross < 1 || minCross > 100000) {
@@ -431,7 +431,7 @@ export function AdminScreen({ onBack }: { onBack?: () => void }) {
     const local = closeEdit[game.id] ?? toLocalInputValue(game.betting_closes_at);
     const iso = fromLocalInputValue(local);
     if (!iso) {
-      notify('Pick a valid last-bet date/time');
+      notify('Pick a valid last-entry date/time');
       return;
     }
     // Prefer RPC; also write table directly so scrap cannot "lose" the value via UI confusion
@@ -445,7 +445,7 @@ export function AdminScreen({ onBack }: { onBack?: () => void }) {
         .update({ betting_closes_at: iso })
         .eq('id', game.id);
       if (upErr) {
-        notify(error.message || upErr.message || 'Failed to set last bet time');
+        notify(error.message || upErr.message || 'Failed to set last entry time');
         return;
       }
     }
@@ -455,7 +455,7 @@ export function AdminScreen({ onBack }: { onBack?: () => void }) {
       return next;
     });
     await loadAll();
-    notify(`${game.name} last bet time saved (override ON)`);
+    notify(`${game.name} last entry time saved (override ON)`);
   };
 
   const clearBettingClose = async (game: Game) => {
@@ -502,7 +502,7 @@ export function AdminScreen({ onBack }: { onBack?: () => void }) {
     const { data, error } = await q;
     setUserBetsLoading(false);
     if (error) {
-      notify(error.message || 'Could not load bets');
+      notify(error.message || 'Could not load entries');
       setUserBets([]);
       return;
     }
@@ -634,7 +634,7 @@ export function AdminScreen({ onBack }: { onBack?: () => void }) {
                 <ListOrdered size={18} />
                 <div>
                   <strong>{allBets.length}</strong>
-                  <span>Bets</span>
+                  <span>Entries</span>
                 </div>
               </div>
               <div className="stat-card">
@@ -736,7 +736,7 @@ export function AdminScreen({ onBack }: { onBack?: () => void }) {
                     </div>
 
                     <p className="digit-totals-label">
-                      Live open-round totals · {pendingBets.length} bets · {pendingStakeTotal} coins (lowest →{' '}
+                      Live open-round totals · {pendingBets.length} entries · {pendingStakeTotal} coins (lowest →{' '}
                       {lowestDigit})
                       <span className="live-dot" aria-hidden /> Live
                     </p>
@@ -792,7 +792,7 @@ export function AdminScreen({ onBack }: { onBack?: () => void }) {
                       {!harf && (
                         <div className="admin-payout-row">
                           <label>
-                            Last bet time (stop users)
+                            Last entry time (stop users)
                             <input
                               className="result-input"
                               type="datetime-local"
@@ -861,7 +861,7 @@ export function AdminScreen({ onBack }: { onBack?: () => void }) {
                         className="settle-button"
                         onClick={() => forceSettle(game)}
                         disabled={!harf}
-                        title={harf ? 'Lowest-bet settle' : 'Markets need scraped/admin override'}
+                        title={harf ? 'Lowest-total settle' : 'Markets need scraped/admin override'}
                       >
                         {harf ? 'Auto settle now' : 'Needs official result'}
                       </button>
@@ -900,7 +900,7 @@ export function AdminScreen({ onBack }: { onBack?: () => void }) {
                           {u.is_admin && <b className="admin-tag">ADMIN</b>}
                         </strong>
                         <small>
-                          {u.phone || 'N/A'} · {u.coins} coins · tap for bet history
+                          {u.phone || 'N/A'} · {u.coins} coins · tap for entry history
                         </small>
                       </button>
                       <div className="credit-row">
@@ -952,7 +952,7 @@ export function AdminScreen({ onBack }: { onBack?: () => void }) {
                           <ArrowLeft size={18} />
                         </button>
                         <div>
-                          <span className="small-label">USER BETS</span>
+                          <span className="small-label">USER ENTRIES</span>
                           <h2>{u.display_name}</h2>
                           <small>
                             {u.phone || 'N/A'} · {u.coins} coins · {u.id.slice(0, 8)}
@@ -982,9 +982,9 @@ export function AdminScreen({ onBack }: { onBack?: () => void }) {
                         ))}
                       </div>
                       {userBetsLoading ? (
-                        <p className="empty-state">Loading bets…</p>
+                        <p className="empty-state">Loading entries…</p>
                       ) : userBets.length === 0 ? (
-                        <p className="empty-state">No bets in this period.</p>
+                        <p className="empty-state">No entries in this period.</p>
                       ) : (
                         <div className="admin-bet-cards">
                           {groupUserBetSlips(userBets).map((slip) => {
@@ -1053,7 +1053,7 @@ export function AdminScreen({ onBack }: { onBack?: () => void }) {
                   </div>
                 );
               })}
-              {allBets.length === 0 && <p className="empty-state">No bets yet.</p>}
+              {allBets.length === 0 && <p className="empty-state">No entries yet.</p>}
             </div>
           </section>
         )}
@@ -1084,9 +1084,9 @@ export function AdminScreen({ onBack }: { onBack?: () => void }) {
 
         {section === 'limits' && (
           <section className="admin-pane">
-            <h2 className="admin-pane-title">Min bet & payout (per game)</h2>
+            <h2 className="admin-pane-title">Min amount & payout (per game)</h2>
             <p className="admin-close-hint" style={{ marginBottom: 12 }}>
-              Win amount = stake × payout. Example: bet 10 with payout 90 → earn 900 coins.
+              Win amount = stake × payout. Example: play 10 with payout 90 → earn 900 coins.
             </p>
             <div className="admin-limits-list">
               {sortGames(games).map((game) => {
@@ -1112,7 +1112,7 @@ export function AdminScreen({ onBack }: { onBack?: () => void }) {
                     <div className="admin-game-actions stacked">
                       <div className="admin-payout-row admin-limits-row">
                         <label>
-                          Min bet (Open / Jodi / Harf)
+                          Min amount (Open / Jodi / Harf)
                           <input
                             className="result-input"
                             value={d.minBet}

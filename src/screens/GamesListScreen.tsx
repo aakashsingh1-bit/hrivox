@@ -86,7 +86,7 @@ export function GamesListScreen({ onOpenGame }: Props) {
       </header>
 
       <p className="market-list-hint">
-        Green = betting open. Red = closed / result out (digit shown). Tap a red market for “bet closed”.
+        Green = open. Red = closed / result out (digit shown). Tap a red market when closed.
       </p>
 
       <div className="market-green-list">
@@ -101,7 +101,7 @@ export function GamesListScreen({ onOpenGame }: Props) {
               className={`market-green-row ${rowClass}`}
               onClick={() => {
                 if (open) onOpenGame(g.id);
-                else notify('bet closed');
+                else notify('Closed');
               }}
             >
               <span>

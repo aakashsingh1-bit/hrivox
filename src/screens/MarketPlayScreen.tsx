@@ -130,7 +130,7 @@ export function MarketPlayScreen({ gameId, onBack }: Props) {
   const addOpen = () => {
     playTap();
     if (!bettingOpen) {
-      notify('bet closed');
+      notify('Closed');
       return;
     }
     const n = Number(openNum);
@@ -141,7 +141,7 @@ export function MarketPlayScreen({ gameId, onBack }: Props) {
     }
     const minOpen = gameMinBet(game);
     if (!a || a < minOpen) {
-      notify(`Minimum bet Rs ${minOpen}`);
+      notify(`Minimum amount Rs ${minOpen}`);
       return;
     }
     setSlip((cur) => [
@@ -155,7 +155,7 @@ export function MarketPlayScreen({ gameId, onBack }: Props) {
   const addCrossing = () => {
     playTap();
     if (!bettingOpen) {
-      notify('bet closed');
+      notify('Closed');
       return;
     }
     const base = sanitizeCrossingDigits(crossBase);
@@ -166,7 +166,7 @@ export function MarketPlayScreen({ gameId, onBack }: Props) {
     }
     const minCross = gameCrossingMinBet(game);
     if (!amt || amt < minCross) {
-      notify(`Minimum bet Rs ${minCross}`);
+      notify(`Minimum amount Rs ${minCross}`);
       return;
     }
     const { rows } = expandCrossing(base, amt, jodiCut);
@@ -207,7 +207,7 @@ export function MarketPlayScreen({ gameId, onBack }: Props) {
   const submit = async () => {
     if (!profile || !game) return;
     if (!bettingOpen) {
-      notify('bet closed');
+      notify('Closed');
       return;
     }
     const bets = buildBets();
@@ -233,7 +233,7 @@ export function MarketPlayScreen({ gameId, onBack }: Props) {
     });
     setBusy(false);
     if (error) {
-      notify(error.message || 'Bet failed');
+      notify(error.message || 'Entry failed');
       return;
     }
     playBetOk();
@@ -242,7 +242,7 @@ export function MarketPlayScreen({ gameId, onBack }: Props) {
     setOpenDigits({});
     setCloseDigits({});
     setCrossRows([]);
-    notify('Bet placed ✓');
+    notify('Entry placed ✓');
     await refreshLive();
   };
 
@@ -332,8 +332,8 @@ export function MarketPlayScreen({ gameId, onBack }: Props) {
       </header>
 
       {!bettingOpen && (
-        <p className="mp-closed-banner" onClick={() => notify('bet closed')}>
-          Betting closed for this market
+        <p className="mp-closed-banner" onClick={() => notify('Closed')}>
+          Closed for this market
         </p>
       )}
 
@@ -386,7 +386,7 @@ export function MarketPlayScreen({ gameId, onBack }: Props) {
         {tab === 'jantari' && (
           <div className="jantari-v2">
             <p className="mp-min-hint">
-              Minimum bet Rs {gameMinBet(game)} per number · Crossing min Rs {gameCrossingMinBet(game)} ·
+              Minimum Rs {gameMinBet(game)} per number · Crossing min Rs {gameCrossingMinBet(game)} ·
               Payout 1 → {gamePayoutMult(game)}
             </p>
             {digitRow('Dhai / Open / अंदर', openDigits, setOpenDigits)}

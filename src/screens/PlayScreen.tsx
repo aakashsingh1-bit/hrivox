@@ -271,7 +271,7 @@ export function PlayScreen({ gameId, mode, onBack }: Props) {
       return;
     }
     if (bettingClosed || nextMs <= 0) {
-      notify('Betting closed for this round');
+      notify('Closed for this round');
       return;
     }
     if (totalAmount > profile.coins) {
@@ -283,7 +283,7 @@ export function PlayScreen({ gameId, mode, onBack }: Props) {
       .filter(([, v]) => Number(v) > 0)
       .some(([, v]) => Number(v) < minHarf);
     if (underMin) {
-      notify(`Minimum bet Rs ${minHarf}`);
+      notify(`Minimum amount Rs ${minHarf}`);
       return;
     }
     const capErr = assertBetAmountsAllowed(
@@ -311,7 +311,7 @@ export function PlayScreen({ gameId, mode, onBack }: Props) {
     });
 
     if (error) {
-      notify(error.message || 'Failed to place bet');
+      notify(error.message || 'Failed to place entry');
       setSubmitting(false);
       return;
     }
@@ -320,7 +320,7 @@ export function PlayScreen({ gameId, mode, onBack }: Props) {
     spinToDigit(focusNumber);
     await refreshProfile();
     setAmounts({});
-    notify(mode === 'harf' ? 'Harf bet placed ✓' : 'Bet placed ✓');
+    notify(mode === 'harf' ? 'Harf entry placed ✓' : 'Entry placed ✓');
     setSubmitting(false);
   };
 
@@ -349,7 +349,7 @@ export function PlayScreen({ gameId, mode, onBack }: Props) {
                 Result was <b>{outcome.digit}</b>
               </p>
               <strong className="result-payout loss">−{outcome.stake} coins</strong>
-              <small>Lowest-bet number wins each hour</small>
+              <small>Lowest total number wins each hour</small>
             </>
           )}
           <button type="button" className="result-modal-btn" onClick={() => setOutcome(null)}>
@@ -473,7 +473,7 @@ export function PlayScreen({ gameId, mode, onBack }: Props) {
           onClick={handleSubmit}
           disabled={submitting || !game.is_active || bettingClosed || spinning}
         >
-          {submitting ? '...' : 'Bet Ok'}
+          {submitting ? '...' : 'Confirm'}
         </button>
       </div>
 

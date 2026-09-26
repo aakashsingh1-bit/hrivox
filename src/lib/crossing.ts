@@ -74,12 +74,12 @@ export function assertBetAmountsAllowed(
   now = Date.now(),
 ): string | null {
   if (!isFinalHour(nextResultAt, now)) return null;
-  if (amounts.some((a) => a > 200)) return 'Max bet Rs 200 in final hour';
+  if (amounts.some((a) => a > 200)) return 'Max amount Rs 200 in final hour';
   return null;
 }
 
 export function assertMarketMinBet(amounts: number[], min = MARKET_MIN_BET): string | null {
-  if (amounts.some((a) => a > 0 && a < min)) return `Minimum bet Rs ${min}`;
+  if (amounts.some((a) => a > 0 && a < min)) return `Minimum amount Rs ${min}`;
   return null;
 }
 

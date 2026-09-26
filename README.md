@@ -8,7 +8,7 @@ Production mobile app shell (Vite + React + Supabase + Capacitor) for five hourl
 
 - Markets: Shri Ganesh, Faridabad, Ghaziabad, Gali, Desawar  
 - Numbers **0–9** · payout **1 → 8** on win  
-- Winner = digit with the **lowest total coins** bet (tie → smallest digit)  
+- Winner = digit with the **lowest total coins** played (tie → smallest digit)  
 - Cycle: **1 hour** per round  
 - Add Money: WhatsApp (`SUPPORT_WHATSAPP` in `src/lib/supabase.ts`)
 

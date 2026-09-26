@@ -72,7 +72,7 @@ BEGIN
     v_closed := (v_game.next_result_at - now() < interval '30 seconds');
   END IF;
   IF v_closed THEN
-    RAISE EXCEPTION 'Betting closed for this round';
+    RAISE EXCEPTION 'Closed for this round';
   END IF;
 
   IF v_is_harf AND v_game.next_result_at IS NOT NULL AND v_game.next_result_at - now() <= interval '1 hour' THEN
@@ -80,7 +80,7 @@ BEGIN
   END IF;
 
   IF p_bets IS NULL OR jsonb_typeof(p_bets) <> 'array' OR jsonb_array_length(p_bets) = 0 THEN
-    RAISE EXCEPTION 'No bets provided';
+    RAISE EXCEPTION 'No entries provided';
   END IF;
 
   v_max := CASE WHEN v_is_harf THEN 9 ELSE 99 END;
@@ -93,7 +93,7 @@ BEGIN
       v_kind := CASE WHEN v_is_harf THEN NULL ELSE 'jodi' END;
     END IF;
     IF v_kind IS NOT NULL AND v_kind NOT IN ('open', 'close', 'jodi', 'crossing') THEN
-      RAISE EXCEPTION 'Invalid bet kind';
+      RAISE EXCEPTION 'Invalid entry kind';
     END IF;
     IF v_kind IN ('open', 'close') THEN
       IF v_num IS NULL OR v_num < 0 OR v_num > 9 THEN
@@ -109,19 +109,19 @@ BEGIN
     END IF;
     IF v_is_harf THEN
       IF v_amt < v_min THEN
-        RAISE EXCEPTION 'Minimum bet Rs %', v_min;
+        RAISE EXCEPTION 'Minimum amount Rs %', v_min;
       END IF;
     ELSIF v_kind = 'crossing' THEN
       IF v_amt < v_min_cross THEN
-        RAISE EXCEPTION 'Minimum bet Rs %', v_min_cross;
+        RAISE EXCEPTION 'Minimum amount Rs %', v_min_cross;
       END IF;
     ELSIF v_kind IN ('open', 'close', 'jodi') THEN
       IF v_amt < v_min THEN
-        RAISE EXCEPTION 'Minimum bet Rs %', v_min;
+        RAISE EXCEPTION 'Minimum amount Rs %', v_min;
       END IF;
     END IF;
     IF v_final_hour AND v_amt > 200 THEN
-      RAISE EXCEPTION 'Max bet Rs 200 in final hour';
+      RAISE EXCEPTION 'Max amount Rs 200 in final hour';
     END IF;
     v_total := v_total + v_amt;
   END LOOP;

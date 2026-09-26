@@ -20,7 +20,7 @@ export function HowItWorksScreen({ onBack }: { onBack: () => void }) {
             <strong>Play Game</strong>
             <p>
               Pick a market, then Open Game / Jantari (Dhai Open + Harup Close) / Crossing (up to 8 digits). Min
-              bet <b>Rs 100</b>. Market payout <b>1 → 90</b>.
+              min <b>Rs 100</b>. Market payout <b>1 → 90</b>.
             </p>
           </div>
         </li>
@@ -28,7 +28,7 @@ export function HowItWorksScreen({ onBack }: { onBack: () => void }) {
           <span className="info-step-icon"><CircleDot size={18} /></span>
           <div>
             <strong>Play Harf</strong>
-            <p>Separate wheel game (0–9). Lowest total bet wins. Payout <b>1 → 8</b>. Max Rs 200 in final hour.</p>
+            <p>Separate wheel game (0–9). Lowest total wins. Payout <b>1 → 8</b>. Max Rs 200 in final hour.</p>
           </div>
         </li>
         <li>
@@ -47,7 +47,7 @@ export function HowItWorksScreen({ onBack }: { onBack: () => void }) {
           <div>
             <strong>Market results</strong>
             <p>
-              Markets use the official published result (automated fetch + admin override). Open bets match the
+              Markets use the official published result (automated fetch + admin override). Open entries match the
               tens digit; Close match the units; Jodi matches the full number.
             </p>
           </div>
@@ -66,7 +66,7 @@ export function HowItWorksScreen({ onBack }: { onBack: () => void }) {
 
       <div className="info-callout">
         <strong>Example</strong>
-        <p>You bet 10 coins on jodi 57. If result is 57, you receive 900 coins payout (1 → 90).</p>
+        <p>You play 10 coins on jodi 57. If result is 57, you receive 900 coins payout (1 → 90).</p>
       </div>
     </div>
   );

@@ -13,8 +13,8 @@
 | Login / Sign up (full-screen mobile) | Ready |
 | Wheel + arrow spin, spark on stop | Ready |
 | Win / Loss popup after hourly result | Ready |
-| Admin panel (Overview / Games live totals / Users / Bets / Results) | Ready |
-| Rules: lowest bet wins · payout **1 → 8** · **1 hour** cycle | Live on server |
+| Admin panel (Overview / Games live totals / Users / Entries / Results) | Ready |
+| Rules: lowest total wins · payout **1 → 8** · **1 hour** cycle | Live on server |
 | Android Capacitor project (`android/`) | Scaffolded — open in Android Studio to export APK |
 
 ---
@@ -27,7 +27,7 @@
 | **Player** | `player@hrivox.com` | `Password123!` |
 
 Admin: open **More → Open Panel**.  
-Player: place bets on Play Game / Play Harf.
+Player: place entries on Play Game / Play Harf.
 
 > Change these passwords before public launch.
 
@@ -43,7 +43,7 @@ Player: place bets on Play Game / Play Harf.
    ```
 2. Log in with the credentials above on a phone or Chrome device toolbar.
 3. Suggested checks:
-   - Place a bet → wallet decreases · arrow stops on selected number · spark
+   - Place an entry → wallet decreases · arrow stops on selected number · spark
    - Admin Games tab → digit totals update live when players bet (no manual refresh)
    - Wait for / force settle (Admin → Auto settle) → win/loss popup for players who bet
    - Logout from Account / More / Settings
@@ -79,7 +79,7 @@ For Play Store / signed release: **Build → Generate Signed Bundle / APK**.
 - Numbers **0–9**  
 - Winner = number with **lowest total coins** that round (tie → smallest digit)  
 - Win payout = **stake × 8**  
-- Round = **1 hour**; betting closes in last **30 seconds**  
+- Round = **1 hour**; play closes in last **30 seconds**  
 - Add Money → WhatsApp (`SUPPORT_WHATSAPP` in `src/lib/supabase.ts` — update number for go-live)
 
 ---

@@ -43,7 +43,7 @@ export function SettingsScreen({ onBack }: { onBack: () => void }) {
       <div className="settings-card">
         <div>
           <strong>Sound effects</strong>
-          <small>Wheel spin, bet confirm, and win tones</small>
+          <small>Wheel spin, confirm, and win tones</small>
         </div>
         <button type="button" className={`settings-toggle ${muted ? '' : 'on'}`} onClick={toggleMute}>
           {muted ? <VolumeX size={18} /> : <Volume2 size={18} />}

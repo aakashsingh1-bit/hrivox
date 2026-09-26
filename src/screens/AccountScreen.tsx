@@ -118,7 +118,7 @@ export function AccountScreen({
           <span className="small-label">LATEST</span>
         </div>
         {bets.length === 0 ? (
-          <p className="empty-state">No bets yet. Open Games to place your first entry.</p>
+          <p className="empty-state">No entries yet. Open Games to place your first entry.</p>
         ) : (
           bets.map((bet) => (
             <div key={bet.id} className="history-row">
